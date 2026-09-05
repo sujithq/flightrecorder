@@ -289,6 +289,98 @@ The resulting trace shows that:
 
 This makes it possible to distinguish a code failure from an authorization or governance failure without relying on unstructured logs.
 
+## GitHub Copilot integration
+
+The API exposes a Streamable HTTP Model Context Protocol (MCP) endpoint at `http://localhost:5205/mcp`. Copilot can use the endpoint as six tools:
+
+- `flightrecorder/start_flight_run`
+- `flightrecorder/record_flight_event`
+- `flightrecorder/complete_flight_run`
+- `flightrecorder/get_flight_trace`
+- `flightrecorder/analyze_flight_run`
+- `flightrecorder/list_flight_runs`
+
+The repository also provides a `.github/agents/flight-recorder.agent.md` custom agent. The agent performs normal software-engineering work while recording significant milestones, tests, failures, and policy decisions. Recording is explicit: Copilot calls the MCP tools as it works; the Flight Recorder does not intercept Copilot traffic automatically.
+
+### Start the shared MCP server
+
+Both VS Code and Copilot CLI connect to the same local process. Start it before opening a recording session:
+
+```powershell
+dotnet run --project src\FlightRecorder.Api --launch-profile http
+```
+
+Keep this terminal running. The MCP endpoint is local and unauthenticated, so expose it only on a trusted development machine.
+
+### Use with GitHub Copilot Chat in VS Code
+
+Prerequisites are VS Code 1.99 or later, GitHub Copilot access, and an organization policy that permits MCP servers when applicable.
+
+1. Open the repository root in VS Code. VS Code discovers `.vscode/mcp.json`.
+2. Open `.vscode/mcp.json` and click **Start** above the `flightrecorder` server, or run **MCP: List Servers** from the Command Palette and start it there.
+3. Approve the server when VS Code asks whether you trust it.
+4. Open Copilot Chat.
+5. Select the **flight-recorder** custom agent from the agent picker. If it is not listed, reload the VS Code window after pulling the agent file.
+6. Enter a normal development request, for example:
+
+   > Fix issue #42, run the relevant tests, and explain any operation that is blocked.
+
+7. Approve MCP tool calls when prompted.
+8. The custom agent returns the run ID and trace summary after completing the task. Ask `Show the full Flight Recorder trace for that run` to inspect the recorded evidence.
+
+To use the tools without the custom agent, remain in normal **Agent** mode and prompt explicitly:
+
+> Use the flightrecorder tools to start a Redacted run, perform this task, record significant tool and test results, complete the run, and analyze it.
+
+Use the tools button in Copilot Chat to confirm that all six `flightrecorder` tools are enabled.
+
+### Use with GitHub Copilot CLI
+
+Copilot CLI discovers the repository-level `.mcp.json` when it starts within this repository.
+
+1. In a second terminal, change to the repository root and start Copilot CLI:
+
+   ```powershell
+   copilot
+   ```
+
+2. Confirm folder trust if prompted. Project MCP servers are skipped in untrusted directories.
+3. Verify the server and tools:
+
+   ```text
+   /mcp show flightrecorder
+   ```
+
+4. Select the repository custom agent:
+
+   ```text
+   /agent
+   ```
+
+   Choose **flight-recorder**. Restart Copilot CLI first if the agent was added while the CLI was already running.
+
+5. Enter a normal task, for example:
+
+   > Fix issue #42, run the relevant tests, and explain any operation that is blocked.
+
+6. Approve tool calls when prompted. The agent completes and analyzes the trace before presenting its final response.
+
+You can also invoke the agent directly from PowerShell:
+
+```powershell
+copilot --agent flight-recorder --prompt "Fix issue #42 and run the relevant tests"
+```
+
+For prompt mode in a repository that has not already been trusted interactively, set `GITHUB_COPILOT_PROMPT_MODE_WORKSPACE_MCP=true` before invoking Copilot so it can load the workspace MCP configuration.
+
+### Troubleshooting
+
+- **Connection refused:** verify that the API terminal says it is listening on `http://localhost:5205`.
+- **Server not listed in VS Code:** run **Developer: Reload Window**, then **MCP: List Servers**.
+- **Server not listed in Copilot CLI:** start the CLI from the repository root, accept folder trust, and run `/mcp show flightrecorder`.
+- **Tools are unavailable:** confirm your Copilot organization policy allows MCP servers and that the server is enabled in the tools picker.
+- **No trace was created:** select the **flight-recorder** custom agent or explicitly tell normal Agent mode to use the recorder tools.
+
 ## Data persistence
 
 The current implementation stores data in memory. All recorded runs disappear when the API process stops or restarts.

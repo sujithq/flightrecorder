@@ -19,6 +19,12 @@ dotnet run --project src\FlightRecorder.Api
 
 The current store is in-memory to keep the prototype easy to run. The service boundary is intentionally isolated so a durable or OpenTelemetry-backed store can be added without changing the controller contract.
 
+## GitHub Copilot integration
+
+The API exposes a Streamable HTTP MCP endpoint at `http://localhost:5205/mcp`. Repository configuration is included for both GitHub Copilot Chat in VS Code (`.vscode/mcp.json`) and GitHub Copilot CLI (`.mcp.json`).
+
+Start the API, then select the repository's **flight-recorder** custom agent or ask Copilot to use the `flightrecorder` MCP tools. See [the getting-started guide](docs/getting-started.md#use-with-github-copilot-chat-in-vs-code) for setup and example prompts.
+
 ## Validate
 
 ```powershell

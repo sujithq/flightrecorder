@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "flightrecorder": {
+      "type": "http",
+      "url": "http://localhost:5205/mcp"
+    }
+  }
+}
