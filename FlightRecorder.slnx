@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src\FlightRecorder.Api\FlightRecorder.Api.csproj" />
+  <Project Path="tests\FlightRecorder.Api.Tests\FlightRecorder.Api.Tests.csproj" />
+</Solution>
