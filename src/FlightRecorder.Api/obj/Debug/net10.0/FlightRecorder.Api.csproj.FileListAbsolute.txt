@@ -4,7 +4,6 @@ C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecord
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\FlightRecorder.Api.exe
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\FlightRecorder.Api.deps.json
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\FlightRecorder.Api.runtimeconfig.json
-C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\FlightRecorder.Api.runtimeconfig.dev.json
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\FlightRecorder.Api.dll
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\FlightRecorder.Api.pdb
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\rpswa.dswa.cache.json
@@ -17,7 +16,6 @@ C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecord
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\rjimswa.dswa.cache.json
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\rjsmrazor.dswa.cache.json
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\rjsmcshtml.dswa.cache.json
-C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\scopedcss\scopedcss.cache
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\scopedcss\bundle\FlightRecorder.Api.styles.css
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\staticwebassets.build.json
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\staticwebassets.build.json.cache
@@ -30,3 +28,8 @@ C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecord
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\FlightRecorder.Api.genruntimeconfig.cache
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\ref\FlightRecorder.Api.dll
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\FlightRe.1870E589.Up2Date
+C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\Microsoft.Extensions.AI.Abstractions.dll
+C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\ModelContextProtocol.dll
+C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\ModelContextProtocol.AspNetCore.dll
+C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\ModelContextProtocol.Core.dll
+C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\FlightRecorder.Api.csproj.AssemblyReference.cache

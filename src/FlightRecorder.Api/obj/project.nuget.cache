@@ -1,13 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "Ps6Sc/BcgIM=",
+  "dgSpecHash": "xdy9GfyTnPY=",
   "success": true,
   "projectFilePath": "C:\\Users\\squintelier\\source\\repos\\github\\sujithq\\flightrecorder\\src\\FlightRecorder.Api\\FlightRecorder.Api.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\squintelier\\.nuget\\packages\\microsoft.netcore.app.ref\\10.0.10\\microsoft.netcore.app.ref.10.0.10.nupkg.sha512",
-    "C:\\Users\\squintelier\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\10.0.10\\microsoft.windowsdesktop.app.ref.10.0.10.nupkg.sha512",
-    "C:\\Users\\squintelier\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\10.0.10\\microsoft.aspnetcore.app.ref.10.0.10.nupkg.sha512",
-    "C:\\Users\\squintelier\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\10.0.10\\microsoft.netcore.app.host.win-x64.10.0.10.nupkg.sha512"
+    "C:\\Users\\squintelier\\.nuget\\packages\\microsoft.extensions.ai.abstractions\\10.8.3\\microsoft.extensions.ai.abstractions.10.8.3.nupkg.sha512",
+    "C:\\Users\\squintelier\\.nuget\\packages\\modelcontextprotocol\\2.2.0\\modelcontextprotocol.2.2.0.nupkg.sha512",
+    "C:\\Users\\squintelier\\.nuget\\packages\\modelcontextprotocol.aspnetcore\\2.2.0\\modelcontextprotocol.aspnetcore.2.2.0.nupkg.sha512",
+    "C:\\Users\\squintelier\\.nuget\\packages\\modelcontextprotocol.core\\2.2.0\\modelcontextprotocol.core.2.2.0.nupkg.sha512"
   ],
   "logs": []
 }

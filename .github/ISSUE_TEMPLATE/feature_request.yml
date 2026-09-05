@@ -1,0 +1,60 @@
+name: Feature request
+description: Propose an improvement to Agent Flight Recorder
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or operational problem should this feature solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the desired behavior and how users would interact with it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe workarounds or alternative designs you considered.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Trace collection
+        - Privacy and redaction
+        - Root-cause analysis
+        - REST API
+        - MCP and Copilot integration
+        - Storage and export
+        - Developer experience
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Suggested acceptance criteria
+      description: List observable outcomes that would make the feature complete.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues for similar requests.
+          required: true
+        - label: I did not include credentials, personal data, or sensitive trace payloads.
+          required: true

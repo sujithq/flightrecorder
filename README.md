@@ -25,6 +25,19 @@ The API exposes a Streamable HTTP MCP endpoint at `http://localhost:5205/mcp`. R
 
 Start the API, then select the repository's **flight-recorder** custom agent or ask Copilot to use the `flightrecorder` MCP tools. See [the getting-started guide](docs/getting-started.md#use-with-github-copilot-chat-in-vs-code) for setup and example prompts.
 
+## Run with Docker
+
+```powershell
+docker build --tag flightrecorder:dev .
+docker run --rm --publish 8080:8080 flightrecorder:dev
+```
+
+The REST API and MCP endpoint are then available through `http://localhost:8080`.
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) before submitting changes. Report suspected vulnerabilities privately according to [SECURITY.md](SECURITY.md).
+
 ## Validate
 
 ```powershell
