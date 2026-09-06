@@ -47,18 +47,32 @@ The store is in-memory and resets when the process stops. There is no authentica
 
 ## GitHub Copilot integration
 
-The API exposes a Streamable HTTP MCP endpoint at `http://localhost:5205/mcp`. Repository configuration is included for both GitHub Copilot Chat in VS Code (`.vscode/mcp.json`) and GitHub Copilot CLI (`.mcp.json`).
+The Docker service exposes a Streamable HTTP MCP endpoint at `http://localhost:5080/mcp`. Repository configuration targets this endpoint for both GitHub Copilot Chat in VS Code ([.vscode/mcp.json](.vscode/mcp.json)) and GitHub Copilot CLI ([.mcp.json](.mcp.json)). A native `dotnet run` still defaults to port 5205; use `--urls http://localhost:5080` to match the MCP configuration when Docker is stopped.
 
-Start the API, then select the repository's **flight-recorder** custom agent or ask Copilot to use the `flightrecorder` MCP tools. See [the getting-started guide](docs/getting-started.md#use-with-github-copilot-chat-in-vs-code) for setup and example prompts.
+Start the Docker service once as described below, then select the repository's **flight-recorder** custom agent or ask Copilot to use the `flightrecorder` MCP tools. See [the getting-started guide](docs/getting-started.md#use-with-github-copilot-chat-in-vs-code) for setup and example prompts.
 
-## Run with Docker
+## Automatic startup with Docker
 
 ```powershell
-docker build --tag flightrecorder:dev .
-docker run --rm --publish 127.0.0.1:8080:8080 flightrecorder:dev
+docker compose up --build --detach
 ```
 
-The viewer, REST API and MCP endpoint are then available through `http://localhost:8080`. Add `--env FlightRecorder__EnableDemo=true` to enable the synthetic demo menu in the production container.
+The [Compose service](compose.yaml) hosts the viewer, API and MCP endpoint at **http://localhost:5080**, bound to loopback only. It enables synthetic demos and uses `restart: unless-stopped`, so Docker restarts the existing container when its engine starts or the API process exits. No separate native API, Node.js service, database, OTLP collector or open terminal is required.
+
+On Windows, enable Docker Desktop's **Start Docker Desktop when you sign in** setting. After the first Compose startup, Windows sign-in starts Docker Desktop and Docker starts the recorder. This is sign-in startup, not a guarantee that it runs before anyone logs in. Do not use `docker run --rm` for this service: an automatically removed container cannot restart.
+
+The VS Code panel and optional helper scripts default to port 5205; set `flightRecorder.serverUrl` to `http://localhost:5080` and pass `--url http://localhost:5080` to the helpers when using Docker.
+
+```powershell
+docker compose ps
+docker compose logs --tail 50 recorder
+docker compose stop
+docker compose start
+```
+
+`stop` deliberately disables automatic restart until `start` or `up` is run again. `docker compose down` removes the service entirely. To rebuild after code changes, rerun `docker compose up --build --detach`.
+
+Run history is still in-memory: replacing or restarting the API clears it. Automatic startup does not add durable trace storage. Stop any older recorder container bound to port 5080 before the first Compose startup; stopping an older `--rm` container also removes it and clears its history.
 
 ## Contributing and security
 

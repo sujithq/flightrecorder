@@ -1,0 +1,13 @@
+name: flightrecorder
+
+services:
+  recorder:
+    build:
+      context: .
+    image: flightrecorder:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5080:8080"
+    environment:
+      FlightRecorder__EnableDemo: "true"
+      FlightRecorder__PublicBaseUrl: "http://localhost:5080"
