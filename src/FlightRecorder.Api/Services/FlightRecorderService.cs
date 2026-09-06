@@ -10,7 +10,8 @@ public sealed class FlightRecorderService : IFlightRecorderService
     {
         "http.request.method", "http.response.status_code", "gen_ai.operation.name",
         "gen_ai.request.model", "gen_ai.agent.name", "gen_ai.tool.name", "gen_ai.policy.decision",
-        "gen_ai.data.classification"
+        "gen_ai.data.classification", "sdk.usageEvent", "sdk.cacheReadCount", "sdk.cacheWriteCount",
+        "sdk.cacheDetailsReported", "sdk.durationMs", "sdk.timestampMeaning", "sdk.invalidUsageFields"
     };
     private readonly TraceRedactor redactor;
     private readonly ITraceRunStore store;
@@ -37,7 +38,7 @@ public sealed class FlightRecorderService : IFlightRecorderService
     public IReadOnlyList<RunSummary> ListRuns() => store.List()
         .OrderByDescending(run => run.StartedAt)
         .Select(run => new RunSummary(run.Id, run.Request, run.EntryPointAgent, run.RequestingIdentity, run.Status,
-            run.StartedAt, run.EndedAt, run.Duration, run.Events.Count, run.InputTokens, run.OutputTokens, run.EstimatedCost))
+            run.StartedAt, run.EndedAt, run.Duration, run.Events.Count, run.InputTokens, run.OutputTokens, run.EstimatedCost, run.Usage))
         .ToArray();
 
     public FlightEvent? RecordEvent(Guid runId, RecordEventRequest request)
@@ -55,7 +56,7 @@ public sealed class FlightRecorderService : IFlightRecorderService
                 Metadata(mode, request.RequestedScope), Metadata(mode, request.GrantedScope),
                 Metadata(mode, request.PolicyName), Metadata(mode, request.PolicyReason), request.InputTokens, request.OutputTokens,
                 request.EstimatedCost, Protect(mode, request.Input), Protect(mode, request.Output),
-                ProtectAttributes(mode, request.Attributes), request.ParentEventId);
+                ProtectAttributes(mode, request.Attributes), request.ParentEventId, Metadata(mode, request.CostBasis), 1);
             return current with { Events = [.. current.Events, evt] };
         });
         return evt;

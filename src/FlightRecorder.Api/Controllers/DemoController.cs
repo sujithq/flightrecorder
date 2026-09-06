@@ -24,7 +24,7 @@ public sealed class DemoController(IFlightRecorderService recorder, IConfigurati
         });
         FlightEvent Add(string name, FlightEventType type, string agent, int offset, int duration,
             Guid? parent = null, FlightEventStatus status = FlightEventStatus.Succeeded,
-            string? objective = null, int inputTokens = 0, int outputTokens = 0, decimal cost = 0,
+            string? objective = null, int? inputTokens = null, int? outputTokens = null, decimal? cost = null,
             string? requestedScope = null, string? grantedScope = null, string? policy = null, string? reason = null)
             => recorder.RecordEvent(run.Id, new RecordEventRequest
             {
@@ -34,6 +34,7 @@ public sealed class DemoController(IFlightRecorderService recorder, IConfigurati
                 Identity = agent == "coding-agent" ? "agent-dev-042" : "agent-observer-demo",
                 Objective = objective, InputTokens = inputTokens, OutputTokens = outputTokens, EstimatedCost = cost,
                 Model = type == FlightEventType.ModelCall ? "demo-model" : null,
+                CostBasis = cost.HasValue ? "Synthetic demo USD estimate; not real usage or provider pricing." : null,
                 ToolServer = type == FlightEventType.ToolCall ? "demo-tools" : null,
                 RequestedScope = requestedScope, GrantedScope = grantedScope, PolicyName = policy, PolicyReason = reason
             })!;

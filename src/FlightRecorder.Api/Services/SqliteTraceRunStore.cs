@@ -158,12 +158,23 @@ public sealed class SqliteTraceRunStore : ITraceRunStore
             if (evt is null || evt.Id == Guid.Empty || evt.RunId != run.Id || seen.Contains(evt.Id) ||
                 evt.Name is null || !Enum.IsDefined(evt.Type) || !Enum.IsDefined(evt.Status) ||
                 evt.InputTokens < 0 || evt.OutputTokens < 0 || evt.EstimatedCost < 0 ||
+                evt.UsageSchemaVersion is not (null or 1) ||
                 evt.StartedAt < DateTimeOffset.UnixEpoch || evt.EndedAt < evt.StartedAt ||
                 evt.ParentEventId is { } parentId && !seen.Contains(parentId))
                 throw new InvalidDataException();
             seen.Add(evt.Id);
         }
-        return run;
+        // Older writers persisted omitted measurements as zero. Those zeros cannot
+        // be distinguished from measured zero; retain positive evidence, not guesses.
+        return run with
+        {
+            Events = run.Events.Select(evt => evt.UsageSchemaVersion is null ? evt with
+            {
+                InputTokens = evt.InputTokens == 0 ? null : evt.InputTokens,
+                OutputTokens = evt.OutputTokens == 0 ? null : evt.OutputTokens,
+                EstimatedCost = evt.EstimatedCost == 0 ? null : evt.EstimatedCost
+            } : evt).ToArray()
+        };
     }
 
     private static void Write(SqliteConnection connection, SqliteTransaction transaction, TraceRun run, bool insert)

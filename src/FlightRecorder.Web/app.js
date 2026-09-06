@@ -13,7 +13,7 @@ import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./styles.css";
 import {
   escapeHtml, statusName, eventTypeName, recordingModeName, durationMs,
-  formatDuration, formatNumber, formatCost, eventDepth, timelineBounds
+  formatDuration, formatNumber, formatCost, formatUsage, reportedTokens, usageComplete, usageLabel, eventDepth, timelineBounds
 } from "./model.js";
 
 const icons = {
@@ -145,7 +145,8 @@ function renderOverview() {
       <button data-export="otlp">${icon("file-json")}OTLP JSON</button><button data-action="send-otlp">${icon("send")}Send to collector</button>
       <button data-export="github">${icon("git-pull-request")}GitHub check JSON</button><button data-export="badge">${icon("monitor")}Badger summary</button>
     </div></details></div></div>
-    <div class="metrics">${metric("Duration", formatDuration(durationMs(run)))}${metric("Events", formatNumber(run.events.length))}${metric("Tokens", formatNumber(run.inputTokens + run.outputTokens))}${metric("Est. cost", formatCost(run.estimatedCost))}${metric("Interventions", interventionCount, interventionCount ? "metric-warning" : "")}</div>`;
+    <div class="metrics">${metric("Duration", formatDuration(durationMs(run)))}${metric("Events", formatNumber(run.events.length))}${metric("Reported tokens", usageLabel(run, "tokens"))}${metric("Reported est. cost", usageLabel(run, "cost"))}${metric("Interventions", interventionCount, interventionCount ? "metric-warning" : "")}</div>
+    <p class="usage-note">Usage covers reported events only, not unobserved model calls. Copilot Chat does not automatically supply usage here. Missing measurements are not zero; USD estimates are not Copilot billing credits.</p>`;
   refreshIcons();
 }
 
@@ -272,15 +273,25 @@ async function loadComparison() {
   }
 }
 
-function deltaMetric(label, baseline, candidate, formatter = formatNumber) {
-  const delta = candidate - baseline;
-  return `<div class="delta-metric"><span>${escapeHtml(label)}</span><div><span>${formatter(baseline)}</span>${icon("arrow-right")}<strong>${formatter(candidate)}</strong></div><small class="${delta > 0 ? "delta-up" : delta < 0 ? "delta-down" : ""}">${delta > 0 ? "+" : delta < 0 ? "-" : ""}${formatter(Math.abs(delta))}</small></div>`;
+function deltaMetric(label, baseline, candidate, formatter = formatNumber, comparable = true, partialBefore = false, partialAfter = false) {
+  const delta = comparable && Number.isFinite(baseline) && Number.isFinite(candidate) ? candidate - baseline : null;
+  return `<div class="delta-metric"><span>${escapeHtml(label)}</span><div><span>${formatter(baseline)}${partialBefore ? " (partial)" : ""}</span>${icon("arrow-right")}<strong>${formatter(candidate)}${partialAfter ? " (partial)" : ""}</strong></div><small class="${delta > 0 ? "delta-up" : delta < 0 ? "delta-down" : ""}">${delta === null ? "Not comparable" : `${delta > 0 ? "+" : delta < 0 ? "-" : ""}${formatter(Math.abs(delta))}`}</small></div>`;
 }
 
 function renderComparison() {
   const comparison = state.comparison;
   const events = comparison.events.filter(event => state.changeFilter === "all" || event.change.toLowerCase() === state.changeFilter);
-  element("#comparison-results").innerHTML = `<div class="comparison-metrics">${deltaMetric("Duration", comparison.baseline.durationMilliseconds, comparison.candidate.durationMilliseconds, formatDuration)}${deltaMetric("Tokens", comparison.baseline.inputTokens + comparison.baseline.outputTokens, comparison.candidate.inputTokens + comparison.candidate.outputTokens)}${deltaMetric("Est. cost", comparison.baseline.estimatedCost, comparison.candidate.estimatedCost, formatCost)}${deltaMetric("Interventions", comparison.baseline.policyInterventions, comparison.candidate.policyInterventions)}</div>
+  const usageDelta = kind => {
+    const before = comparison.baseline;
+    const after = comparison.candidate;
+    const value = item => kind === "cost" ? item.estimatedCost : reportedTokens(item);
+    return deltaMetric(kind === "cost" ? "Reported est. cost" : "Reported tokens",
+      value(before), value(after), kind === "cost" ? formatCost : formatUsage,
+      usageComplete(before, kind) && usageComplete(after, kind),
+      Number.isFinite(value(before)) && !usageComplete(before, kind),
+      Number.isFinite(value(after)) && !usageComplete(after, kind));
+  };
+  element("#comparison-results").innerHTML = `<div class="comparison-metrics">${deltaMetric("Duration", comparison.baseline.durationMilliseconds, comparison.candidate.durationMilliseconds, formatDuration)}${usageDelta("tokens")}${usageDelta("cost")}${deltaMetric("Interventions", comparison.baseline.policyInterventions, comparison.candidate.policyInterventions)}</div>
     <div class="panel-toolbar"><h3>Event changes <span class="count">${events.length}</span></h3><select id="change-filter" aria-label="Filter event changes"><option value="all">All events</option><option value="changed">Changed</option><option value="added">Added</option><option value="removed">Removed</option><option value="unchanged">Unchanged</option></select></div>
     <div class="comparison-list">${events.map((comparisonEvent, index) => {
       const event = comparisonEvent.candidate ?? comparisonEvent.baseline;
@@ -307,7 +318,8 @@ function renderInspector(override = null, comparisonLabel = "") {
     ${edge ? `<section><h3>Recorded connection</h3><dl>${detail("Delegated objective", edge.objective)}${detail("Source identity", edge.sourceIdentity)}${detail("Destination identity", edge.targetIdentity)}${detail("Identity changed", edge.identityChanged ? "Yes" : "No")}${detail("Duration", formatDuration(edge.durationMilliseconds))}</dl></section>` : ""}
     ${event.policyName || event.requestedScope || event.policyReason ? `<section class="policy-evidence"><h3>${icon("shield-check")}Identity & permission</h3><dl>${detail("Identity", event.identity)}${detail("Requested scope", event.requestedScope)}${detail("Granted scope", event.grantedScope)}${detail("Policy", event.policyName)}${detail("Decision", statusName(event.status))}${detail("Reason", event.policyReason)}</dl></section>` : ""}
     <section><h3>Operation</h3><dl>${detail("Event ID", event.id)}${detail("Type", eventTypeName(event.type))}${detail("Agent", event.agentName)}${detail("Agent version", event.agentVersion)}${detail("Identity", event.identity)}${detail("Parent identity", parent?.identity)}${detail("Objective", event.objective)}${detail("Model", event.model)}${detail("Tool server", event.toolServer)}${detail("Started", new Date(event.startedAt).toLocaleString())}${detail("Duration", formatDuration(durationMs(event)))}</dl></section>
-    <section><h3>Usage</h3><dl>${detail("Input tokens", formatNumber(event.inputTokens))}${detail("Output tokens", formatNumber(event.outputTokens))}${detail("Estimated cost", formatCost(event.estimatedCost))}</dl></section>
+    <section><h3>Reported usage</h3><dl>${detail("Input tokens", formatUsage(event.inputTokens))}${detail("Output tokens", formatUsage(event.outputTokens))}${detail("Estimated cost (USD)", formatCost(event.estimatedCost))}${detail("Pricing basis", event.costBasis ?? (Number.isFinite(event.estimatedCost) ? "Not reported (legacy estimate)" : null))}</dl>
+    ${event.usageSchemaVersion == null ? '<p class="usage-note">Legacy event: default zeros could not be distinguished from measured zero. Missing usage cannot be reconstructed.</p>' : ""}</section>
     ${event.input ? `<section><h3>Recorded input</h3><pre>${escapeHtml(event.input)}</pre></section>` : ""}${event.output ? `<section><h3>Recorded output</h3><pre>${escapeHtml(event.output)}</pre></section>` : ""}
     ${event.attributes && Object.keys(event.attributes).length ? `<section><h3>Attributes</h3><dl>${Object.entries(event.attributes).map(([key, value]) => detail(key, value)).join("")}</dl></section>` : ""}
     <details class="raw-event"><summary>${icon("braces")}Event JSON</summary><pre>${escapeHtml(JSON.stringify(event, null, 2))}</pre></details>`;

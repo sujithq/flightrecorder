@@ -24,6 +24,8 @@ public sealed class InMemoryFlightRecorderServiceTests
             InputTokens = 100,
             OutputTokens = 30,
             EstimatedCost = 0.02m,
+            Model = "synthetic-model",
+            CostBasis = "Synthetic USD test estimate.",
             Input = "request"
         });
         service.CompleteRun(run.Id);

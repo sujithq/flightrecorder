@@ -107,6 +107,29 @@ dotnet run --project src\FlightRecorder.Api --launch-profile http
 
 This development profile listens on `http://localhost:5205`. Use that URL explicitly in the panel or helpers when inspecting native runs. Repository MCP clients still target Docker on `5080`; to test the native API through those unchanged configurations, stop the Docker recorder first and add `--urls http://localhost:5080` to the native command. Docker's internal port `8080` and the isolated browser-test port `5081` are separate and should not be changed.
 
+## Token usage and cost
+
+Usage is not automatically supplied by ordinary Copilot Chat or by installing the VSIX.
+Unknown `inputTokens`, `outputTokens`, and `estimatedCost` are `null` and display as
+**Not reported**; explicit zero remains zero. Totals include only reported values,
+mark incomplete recorded model-call coverage as **partial**, and suppress misleading
+comparison deltas. Even complete recorded coverage does not prove that all model calls
+were observed. Older persisted default zeros are treated as unknown; positive historical
+measurements are retained, but their missing pricing basis cannot be reconstructed.
+
+Applications that own a Copilot SDK session can use the opt-in
+[SDK usage adapter](integrations/copilot-sdk/README.md) to forward actual usage events.
+It does not intercept VS Code Chat, scrape private logs, or guess tokens from text.
+Optional USD estimates require explicitly configured model prices and usage; Copilot
+credits are never converted to dollars. Direct cost submissions must include a model,
+reported input/output tokens, and `costBasis`. Leave unknown values out rather than
+submitting placeholder zeros.
+
+After installing a release containing these changes, run **Rebuild / Update Local Recorder**
+to update the API/viewer and refresh the MCP connection/tool schema. Existing clients
+must handle nullable metrics. Badge protocol v2 adds nullable tokens/cost; update its
+relay and firmware together (the new consumers still accept v1).
+
 ## Trace retention
 
 Completed runs have an `endedAt` value, regardless of success, failure or a policy block. The newest 10 are retained by completion time, then start time and run ID for deterministic ties. All unfinished runs remain, including interrupted workflows, so the total can exceed 10. An unfinished status does not prove the original agent is still running; the same run ID can receive more events or be explicitly completed through the existing API/MCP tools.

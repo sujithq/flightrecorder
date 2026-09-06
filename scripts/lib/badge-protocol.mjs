@@ -11,16 +11,16 @@ function nonnegative(value, integer = false) {
 }
 
 export function badgeFrame(summary) {
-  if (!summary || summary.version !== 1 || !statuses.has(summary.status)) throw new Error("Unsupported badge summary.");
+  if (!summary || (summary.version !== 1 && summary.version !== 2) || !statuses.has(summary.status)) throw new Error("Unsupported badge summary.");
   const frame = JSON.stringify({
-    version: 1,
+    version: summary.version,
     runId: requireRunId(summary.runId),
     agent: asciiText(summary.agent, 28),
     status: summary.status,
     eventCount: nonnegative(summary.eventCount, true),
-    tokens: nonnegative(summary.tokens, true),
+    tokens: summary.version === 2 && summary.tokens === null ? null : nonnegative(summary.tokens, true),
     durationSeconds: nonnegative(summary.durationSeconds),
-    estimatedCost: nonnegative(summary.estimatedCost),
+    estimatedCost: summary.version === 2 && summary.estimatedCost === null ? null : nonnegative(summary.estimatedCost),
     alert: summary.alert === null || summary.alert === undefined ? null : asciiText(summary.alert, 64)
   }) + "\n";
   if (Buffer.byteLength(frame, "utf8") > 1024) throw new Error("Badge frame exceeds the device buffer.");

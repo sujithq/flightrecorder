@@ -78,6 +78,7 @@ test("Docker preserves acknowledged traces across crash, recreation and configur
   const parent = await api(`runs/${runId}/events`, { name: "Parent", type: 1, identity: "parent-identity" });
   await api(`runs/${runId}/events`, {
     name: "Interrupted action", type: 3, parentEventId: parent.id, status: 3,
+    model: "synthetic-model", outputTokens: 0, costBasis: "Synthetic USD test pricing.",
     identity: "child-identity", inputTokens: 23, estimatedCost: 0.0123, input: "token=synthetic-private-value"
   });
   const completed = [];

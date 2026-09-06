@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { randomUUID } from "node:crypto";
+import { attachCopilotUsage } from "../../integrations/copilot-sdk/usage.mjs";
 
 test("trace workflow exposes graph links, policy evidence, comparison and exports", async ({ page, request }, testInfo) => {
   const errors = [];
@@ -82,4 +84,98 @@ test("trace text stays inert and missing runs surface a recoverable error", asyn
   await expect(page.getByRole("alert")).toContainText(/404|Not Found/);
   await page.locator("[data-run]").first().click();
   await expect(page.locator("#run-overview h2")).toBeVisible();
+});
+
+test("missing, zero and partial usage are distinct in overview, inspector and comparison", async ({ page, request }) => {
+  const create = async (name, events) => {
+    const response = await request.post("/api/runs", { data: {
+      request: name, entryPointAgent: "usage-test", requestingIdentity: "test", recordingMode: 1
+    } });
+    expect(response.ok()).toBeTruthy();
+    const run = await response.json();
+    for (const event of events) {
+      const recorded = await request.post(`/api/runs/${run.id}/events`, { data: { type: 2, ...event } });
+      expect(recorded.ok()).toBeTruthy();
+    }
+    await request.post(`/api/runs/${run.id}/complete`);
+    return run;
+  };
+  const missing = await create("Usage unavailable", [{ name: "Unknown model usage" }]);
+  const measured = await create("Usage explicitly zero", [{
+    name: "Zero model usage", model: "synthetic-model", inputTokens: 0, outputTokens: 0,
+    estimatedCost: 0, costBasis: "Synthetic USD test pricing: zero per token."
+  }]);
+  const partial = await create("Usage partially reported", [
+    { name: "Input only", inputTokens: 12 }, { name: "Unreported call" }
+  ]);
+  await page.goto(`/?run=${missing.id}`);
+  const tokens = page.locator("#run-overview .metric").filter({ hasText: "Reported tokens" }).locator("strong");
+  const cost = page.locator("#run-overview .metric").filter({ hasText: "Reported est. cost" }).locator("strong");
+  await expect(tokens).toHaveText("Not reported");
+  await expect(cost).toHaveText("Not reported");
+  await page.locator(".timeline-row").first().click();
+  await expect(page.locator("#inspector")).toContainText("Not reported");
+  await page.goto(`/?run=${measured.id}`);
+  await expect(tokens).toHaveText("0");
+  await expect(cost).toHaveText("$0.0000");
+  await page.locator(".timeline-row").first().click();
+  await expect(page.locator("#inspector")).toContainText("Synthetic USD test pricing");
+  await page.goto(`/?run=${partial.id}`);
+  await expect(tokens).toHaveText("12 (partial)");
+  await expect(cost).toHaveText("Not reported");
+  await page.getByRole("tab", { name: "Compare", exact: true }).click();
+  await page.getByLabel("Baseline run").selectOption(missing.id);
+  const tokenComparison = page.locator(".delta-metric").filter({ hasText: "Reported tokens" });
+  await expect(tokenComparison).toContainText("Not reported");
+  await expect(tokenComparison).toContainText("12 (partial)");
+  await expect(tokenComparison).toContainText("Not comparable");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+});
+
+test("SDK usage adapter reaches the API and viewer with explicit pricing evidence", async ({ page, request, baseURL }) => {
+  const response = await request.post("/api/runs", { data: {
+    request: "Synthetic SDK adapter acceptance", entryPointAgent: "sdk-test", requestingIdentity: "test", recordingMode: 1
+  } });
+  expect(response.ok()).toBeTruthy();
+  const run = await response.json();
+  let emit;
+  const session = {
+    on(type, listener) {
+      expect(type).toBe("assistant.usage");
+      emit = listener;
+      return () => { emit = undefined; };
+    }
+  };
+  const capture = attachCopilotUsage(session, {
+    runId: run.id, serverUrl: baseURL,
+    prices: { "synthetic-model": {
+      currency: "USD", source: "Synthetic acceptance prices, not provider pricing",
+      asOf: "2026-09-01", effectiveFrom: "2026-09-01", inputTokenAccounting: "includes-cache",
+      inputPerMillion: 2, outputPerMillion: 6
+    } }
+  });
+  try {
+    emit({
+      type: "assistant.usage", id: randomUUID(), timestamp: "2026-09-06T16:00:00Z", ephemeral: true,
+      data: { model: "synthetic-model", inputTokens: 1000, outputTokens: 250, cacheReadTokens: 0, cacheWriteTokens: 0 }
+    });
+  } finally {
+    await capture.detach();
+  }
+  await request.post(`/api/runs/${run.id}/complete`);
+  const stored = await (await request.get(`/api/runs/${run.id}`)).json();
+  expect(stored.inputTokens).toBe(1000);
+  expect(stored.outputTokens).toBe(250);
+  expect(stored.estimatedCost).toBeCloseTo(0.0035);
+  expect(stored.events[0].costBasis).toContain("Synthetic acceptance prices");
+  expect(JSON.parse(stored.events[0].costBasis).inputAccounting).toBe("includes-cache");
+  expect(stored.events[0].attributes["sdk.cacheReadCount"]).toBe("0");
+  expect(stored.events[0].attributes["sdk.cacheWriteCount"]).toBe("0");
+  expect(stored.usage.tokensComplete).toBe(true);
+  expect(stored.usage.costComplete).toBe(true);
+  await page.goto(`/?run=${run.id}`);
+  await expect(page.locator("#run-overview .metric").filter({ hasText: "Reported tokens" }).locator("strong")).toHaveText("1,250");
+  await expect(page.locator("#run-overview .metric").filter({ hasText: "Reported est. cost" }).locator("strong")).toHaveText("$0.0035");
+  await page.locator(".timeline-row").first().click();
+  await expect(page.locator("#inspector")).toContainText("Synthetic acceptance prices");
 });

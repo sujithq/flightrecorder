@@ -156,7 +156,7 @@ public sealed class TraceFeatureTests : IClassFixture<FlightRecorderApiFactory>
     {
         var run = await Demo();
         var badge = (await client.GetFromJsonAsync<BadgeSummary>($"/api/runs/{run.Id}/badge"))!;
-        Assert.Equal(1, badge.Version);
+        Assert.Equal(2, badge.Version);
         Assert.Equal("Blocked", badge.Status);
         Assert.Equal(run.Events.Count, badge.EventCount);
         Assert.True(badge.Alert!.Length <= 64);

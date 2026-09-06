@@ -42,13 +42,14 @@ public sealed class FlightRecorderMcpTools(IFlightRecorderService recorder)
         [Description("Human-readable reason for a policy decision or failure.")] string? policyReason = null,
         [Description("UTC start time. Defaults to the current time when omitted.")] DateTimeOffset? startedAt = null,
         [Description("UTC end time, when the event has completed.")] DateTimeOffset? endedAt = null,
-        [Description("Number of model input tokens consumed.")] int inputTokens = 0,
-        [Description("Number of model output tokens consumed.")] int outputTokens = 0,
-        [Description("Estimated monetary cost of this event.")] decimal estimatedCost = 0,
+        [Description("Reported model input tokens. Omit when unavailable; zero means an explicitly reported zero. Never infer from text length.")] int? inputTokens = null,
+        [Description("Reported model output tokens. Omit when unavailable; zero means an explicitly reported zero.")] int? outputTokens = null,
+        [Description("Estimated USD cost from reported usage and explicit model pricing. Omit when unavailable. Copilot credits are not dollars. Requires model, inputTokens, outputTokens and costBasis.")] decimal? estimatedCost = null,
         [Description("Input or sanitized parameters supplied to the operation.")] string? input = null,
         [Description("Output or result returned by the operation.")] string? output = null,
         [Description("Additional event metadata, subject to the run recording policy.")] Dictionary<string, string>? attributes = null,
-        [Description("An existing event ID in this run that owns this child operation or delegation.")] Guid? parentEventId = null)
+        [Description("An existing event ID in this run that owns this child operation or delegation.")] Guid? parentEventId = null,
+        [Description("Pricing source, applicable model rates, currency USD and effective/as-of date used for estimatedCost. Do not invent rates.")] string? costBasis = null)
         => recorder.RecordEvent(runId, new RecordEventRequest
         {
             Type = type,
@@ -69,6 +70,7 @@ public sealed class FlightRecorderMcpTools(IFlightRecorderService recorder)
             InputTokens = inputTokens,
             OutputTokens = outputTokens,
             EstimatedCost = estimatedCost,
+            CostBasis = costBasis,
             Input = input,
             Output = output,
             Attributes = attributes,

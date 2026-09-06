@@ -43,16 +43,16 @@ public static class TraceViewService
         return new TraceComparison(baseline.Id, candidate.Id, baselineMetrics, candidateMetrics,
             new RunMetrics(candidateMetrics.EventCount - baselineMetrics.EventCount,
                 candidateMetrics.DurationMilliseconds - baselineMetrics.DurationMilliseconds,
-                candidateMetrics.InputTokens - baselineMetrics.InputTokens,
-                candidateMetrics.OutputTokens - baselineMetrics.OutputTokens,
-                candidateMetrics.EstimatedCost - baselineMetrics.EstimatedCost,
+                baseline.Usage.TokensComplete && candidate.Usage.TokensComplete ? candidateMetrics.InputTokens - baselineMetrics.InputTokens : null,
+                baseline.Usage.TokensComplete && candidate.Usage.TokensComplete ? candidateMetrics.OutputTokens - baselineMetrics.OutputTokens : null,
+                baseline.Usage.CostComplete && candidate.Usage.CostComplete ? candidateMetrics.EstimatedCost - baselineMetrics.EstimatedCost : null,
                 candidateMetrics.PolicyInterventions - baselineMetrics.PolicyInterventions), comparisons);
     }
 
     public static RunMetrics Metrics(TraceRun run) => new(run.Events.Count, run.Duration.TotalMilliseconds,
-        run.Events.Sum(evt => (long)evt.InputTokens), run.Events.Sum(evt => (long)evt.OutputTokens),
+        run.InputTokens, run.OutputTokens,
         run.EstimatedCost, run.Events.Count(evt => evt.Type == FlightEventType.PolicyDecision &&
-            evt.Status is FlightEventStatus.Blocked or FlightEventStatus.RequiresApproval));
+            evt.Status is FlightEventStatus.Blocked or FlightEventStatus.RequiresApproval), run.Usage);
 
     private static Dictionary<string, FlightEvent> Index(TraceRun run)
     {
@@ -90,7 +90,8 @@ public static class TraceViewService
             ("Duration", baseline.Duration, candidate.Duration),
             ("InputTokens", baseline.InputTokens, candidate.InputTokens),
             ("OutputTokens", baseline.OutputTokens, candidate.OutputTokens),
-            ("EstimatedCost", baseline.EstimatedCost, candidate.EstimatedCost)
+            ("EstimatedCost", baseline.EstimatedCost, candidate.EstimatedCost),
+            ("CostBasis", baseline.CostBasis, candidate.CostBasis)
         ];
         return fields.Where(field => !Equals(field.Before, field.After)).Select(field => field.Name).ToArray();
     }

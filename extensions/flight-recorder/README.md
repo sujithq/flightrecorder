@@ -196,6 +196,26 @@ Making MCP tools available is not automatic recording or interception of agent t
 Use your workspace's recording policy or explicitly ask Copilot to record a workflow.
 Only loopback URLs are accepted; this prototype has no authentication layer.
 
+### Why usage may say "Not reported"
+
+Normal Copilot Chat does not provide its per-call token usage or billing data to this
+extension. Recording instructions cannot manufacture those measurements. The viewer
+shows **Not reported** for omitted token/cost fields, preserves explicitly reported
+zero, and labels known subtotals **partial** when recorded model-call usage is incomplete.
+It does not equate missing values to free work or calculate savings from incomplete data.
+
+Developers controlling a Copilot SDK session can opt into the
+[SDK usage adapter](https://github.com/sujithq/flightrecorder/blob/main/integrations/copilot-sdk/README.md).
+It forwards supported usage events and can estimate USD cost only with explicit model
+prices and a recorded pricing basis. This is an application integration, not automatic
+capture from every VS Code chat, and it is not a Copilot billing statement.
+
+Legacy records cannot distinguish default zeros from measured zero. The updated API
+treats those old zeros as unknown, retains positive evidence, and labels missing legacy
+pricing basis. Installing a newer VSIX alone does not update the API: run **Rebuild /
+Update Local Recorder**, then refresh the MCP connection so agents use the new nullable
+metric schema instead of cached zero defaults.
+
 ## Existing and remote recorders
 
 You can still start the repository Compose deployment yourself or select a native

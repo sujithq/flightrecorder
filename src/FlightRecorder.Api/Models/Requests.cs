@@ -40,9 +40,10 @@ public sealed class RecordEventRequest : IValidatableObject
     public string? GrantedScope { get; init; }
     public string? PolicyName { get; init; }
     public string? PolicyReason { get; init; }
-    [Range(0, int.MaxValue)] public int InputTokens { get; init; }
-    [Range(0, int.MaxValue)] public int OutputTokens { get; init; }
-    [Range(0, double.MaxValue)] public decimal EstimatedCost { get; init; }
+    [Range(0, int.MaxValue)] public int? InputTokens { get; init; }
+    [Range(0, int.MaxValue)] public int? OutputTokens { get; init; }
+    [Range(0, double.MaxValue)] public decimal? EstimatedCost { get; init; }
+    [StringLength(2000)] public string? CostBasis { get; init; }
     public string? Input { get; init; }
     public string? Output { get; init; }
     public Dictionary<string, string>? Attributes { get; init; }
@@ -55,5 +56,12 @@ public sealed class RecordEventRequest : IValidatableObject
             yield return new ValidationResult("Trace timestamps must not precede the Unix epoch.", [nameof(StartedAt)]);
         if (string.IsNullOrWhiteSpace(Name))
             yield return new ValidationResult("Event name cannot be blank.", [nameof(Name)]);
+        if (EstimatedCost.HasValue && (string.IsNullOrWhiteSpace(Model) || !InputTokens.HasValue ||
+            !OutputTokens.HasValue || string.IsNullOrWhiteSpace(CostBasis)))
+            yield return new ValidationResult(
+                "A USD cost estimate requires a model, reported input/output tokens, and a pricing basis. Omit unknown cost; do not submit Copilot billing credits as dollars.",
+                [nameof(EstimatedCost), nameof(Model), nameof(InputTokens), nameof(OutputTokens), nameof(CostBasis)]);
+        if (!EstimatedCost.HasValue && CostBasis is not null)
+            yield return new ValidationResult("A cost basis must accompany an estimated cost.", [nameof(CostBasis)]);
     }
 }

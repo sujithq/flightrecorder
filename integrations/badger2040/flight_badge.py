@@ -12,7 +12,9 @@ def ascii_text(value, limit):
     return "".join(character if 32 <= ord(character) <= 126 else "?" for character in value[:limit])
 
 
-def metric(value, integer=False):
+def metric(value, integer=False, nullable=False):
+    if nullable and value is None:
+        return None
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 9007199254740991:
         raise ValueError("Invalid metric")
     if integer and value != int(value):
@@ -24,22 +26,27 @@ def decode_frame(line):
     if len(line) > MAX_FRAME:
         raise ValueError("Frame too large")
     data = json.loads(line)
-    if not isinstance(data, dict) or data.get("version") != 1 or data.get("status") not in STATUSES:
+    if not isinstance(data, dict):
         raise ValueError("Unsupported frame")
+    version = data.get("version")
+    if isinstance(version, bool) or version not in (1, 2) or data.get("status") not in STATUSES:
+        raise ValueError("Unsupported frame")
+    if "tokens" not in data or "estimatedCost" not in data:
+        raise ValueError("Missing usage metric")
     run_id = data.get("runId", "")
     if not isinstance(run_id, str) or [len(part) for part in run_id.split("-")] != [8, 4, 4, 4, 12]:
         raise ValueError("Invalid run ID")
     if any(character not in "0123456789abcdefABCDEF-" for character in run_id):
         raise ValueError("Invalid run ID")
     return {
-        "version": 1,
+        "version": version,
         "runId": run_id,
         "agent": ascii_text(data.get("agent"), 28),
         "status": data["status"],
         "eventCount": metric(data.get("eventCount"), True),
-        "tokens": metric(data.get("tokens"), True),
+        "tokens": metric(data["tokens"], True, version == 2),
         "durationSeconds": metric(data.get("durationSeconds")),
-        "estimatedCost": metric(data.get("estimatedCost")),
+        "estimatedCost": metric(data["estimatedCost"], nullable=version == 2),
         "alert": ascii_text(data.get("alert"), 64) or None,
     }
 
@@ -99,7 +106,14 @@ def render(display, summary=None):
     status = {"Started": "RUNNING", "RequiresApproval": "APPROVAL REQUIRED"}.get(summary["status"], summary["status"].upper())
     draw_line(display, status, 26, 2)
     draw_line(display, summary["agent"], 48)
-    draw_line(display, "%s events   %s tokens" % (summary["eventCount"], summary["tokens"]), 64)
-    draw_line(display, "%.1fs   USD %.4f" % (summary["durationSeconds"], summary["estimatedCost"]), 80)
+    tokens = "?" if summary["tokens"] is None else summary["tokens"]
+    if summary["estimatedCost"] is None:
+        cost = "?"
+    elif 0 < summary["estimatedCost"] < 0.0001:
+        cost = "<0.0001"
+    else:
+        cost = "%.4f" % summary["estimatedCost"]
+    draw_line(display, "%s events   %s tokens" % (summary["eventCount"], tokens), 64)
+    draw_line(display, "%.1fs   USD %s" % (summary["durationSeconds"], cost), 80)
     draw_line(display, summary["alert"] or "No recorded intervention", 97)
     draw_line(display, "Run " + summary["runId"][:8], 114)

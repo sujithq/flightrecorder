@@ -108,5 +108,6 @@ The Scribe will merge it into the shared decisions file.
   - builds, tests, external APIs, and consequential commands as `ToolCall`
   - denied permissions or approval requirements as `PolicyDecision`
 - Record accurate statuses and concise sanitized input/output. Supply timing, model, token, and cost data only when known; omit unknown optional measurements and do not describe default zeros as measured usage.
+- Omit unknown token/cost fields rather than sending zero; zero means a reported measurement. An `estimatedCost` is a USD estimate and requires reported input/output usage, model, and `costBasis` describing the actual pricing source/rates/date. Never convert Copilot billing credits to dollars or infer usage from text length. Applications with SDK access may use the [opt-in SDK adapter](../integrations/copilot-sdk/README.md); it does not intercept ordinary VS Code Chat.
 - Record failed or blocked operations before attempting recovery when recording remains available. Preserve successful evidence and append recovery or delegation outcomes linked to the relevant earlier event; do not erase failures.
 - This is best-effort, agent-reported evidence, not automatic interception or a complete audit of every tool/model call. Guaranteed capture requires host/runtime instrumentation.

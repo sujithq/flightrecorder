@@ -30,9 +30,26 @@ export function formatDuration(milliseconds) {
 }
 
 export const formatNumber = value => new Intl.NumberFormat("en-US").format(value ?? 0);
-export const formatCost = value => new Intl.NumberFormat("en-US", {
+export const formatUsage = value => Number.isFinite(value) ? formatNumber(value) : "Not reported";
+export const formatCost = value => Number.isFinite(value) ? value > 0 && value < 0.0001 ? "<$0.0001" : new Intl.NumberFormat("en-US", {
   style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 4
-}).format(value ?? 0);
+}).format(value) : "Not reported";
+
+export function reportedTokens(metrics) {
+  const values = [metrics.inputTokens, metrics.outputTokens].filter(Number.isFinite);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+}
+
+export function usageComplete(metrics, kind) {
+  if (kind === "cost") return Number.isFinite(metrics.estimatedCost) && metrics.usage?.costComplete === true;
+  return Number.isFinite(metrics.inputTokens) && Number.isFinite(metrics.outputTokens) && metrics.usage?.tokensComplete === true;
+}
+
+export function usageLabel(metrics, kind) {
+  const value = kind === "cost" ? metrics.estimatedCost : reportedTokens(metrics);
+  const formatted = kind === "cost" ? formatCost(value) : formatUsage(value);
+  return Number.isFinite(value) && !usageComplete(metrics, kind) ? `${formatted} (partial)` : formatted;
+}
 
 export function eventDepth(event, events) {
   const byId = new Map(events.map(item => [item.id, item]));

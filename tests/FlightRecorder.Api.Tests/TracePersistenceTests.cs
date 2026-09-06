@@ -57,6 +57,7 @@ public sealed class TracePersistenceTests : IDisposable
             AgentName = "child", AgentVersion = "1.2", Model = "synthetic-model", ToolServer = "synthetic-tools",
             Identity = "child-identity", RequestedScope = "pull_requests:write", GrantedScope = "contents:read",
             PolicyName = "Approval", PolicyReason = "No approval", InputTokens = 123, OutputTokens = 45,
+            CostBasis = "Synthetic USD test estimate.",
             EstimatedCost = 0.0123456789m, Input = "token=synthetic-input", Output = "Bearer synthetic-output",
             Attributes = new() { ["token"] = "synthetic-attribute", ["gen_ai.operation.name"] = "chat" }
         });

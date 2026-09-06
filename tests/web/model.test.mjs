@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   statusName, eventTypeName, recordingModeName, escapeHtml, durationMs,
-  formatDuration, formatNumber, formatCost, eventDepth, timelineBounds
+  formatDuration, formatNumber, formatCost, formatUsage, reportedTokens, usageComplete, usageLabel, eventDepth, timelineBounds
 } from "../../src/FlightRecorder.Web/model.js";
 
 test("API enums accept numeric values and known string names only", () => {
@@ -36,6 +36,35 @@ test("metrics have stable units", () => {
   assert.equal(formatDuration(NaN), "0 ms");
   assert.equal(formatNumber(12500), "12,500");
   assert.equal(formatCost(0.0321), "$0.0321");
+});
+
+test("missing usage is not reported while measured zero remains numeric", () => {
+  for (const value of [undefined, null, NaN, "0"]) {
+    assert.equal(formatUsage(value), "Not reported");
+    assert.equal(formatCost(value), "Not reported");
+  }
+  assert.equal(formatUsage(0), "0");
+  assert.equal(formatCost(0), "$0.0000");
+  assert.equal(formatCost(0.00001), "<$0.0001");
+  assert.equal(formatCost(0.0001), "$0.0001");
+  assert.equal(reportedTokens({ inputTokens: null, outputTokens: null }), null);
+  assert.equal(reportedTokens({ inputTokens: 10, outputTokens: null }), 10);
+  assert.equal(reportedTokens({ inputTokens: 0, outputTokens: 0 }), 0);
+});
+
+test("usage totals identify partial data and permit comparisons only with complete reporting", () => {
+  const absent = { inputTokens: null, outputTokens: null, estimatedCost: null };
+  assert.equal(usageLabel(absent, "tokens"), "Not reported");
+  assert.equal(usageLabel(absent, "cost"), "Not reported");
+  const partial = { inputTokens: 20, outputTokens: null, estimatedCost: 0, usage: { tokensComplete: false, costComplete: false } };
+  assert.equal(usageLabel(partial, "tokens"), "20 (partial)");
+  assert.equal(usageLabel(partial, "cost"), "$0.0000 (partial)");
+  assert.equal(usageComplete(partial, "tokens"), false);
+  const complete = { inputTokens: 0, outputTokens: 0, estimatedCost: 0, usage: { tokensComplete: true, costComplete: true } };
+  assert.equal(usageLabel(complete, "tokens"), "0");
+  assert.equal(usageLabel(complete, "cost"), "$0.0000");
+  assert.equal(usageComplete(complete, "tokens"), true);
+  assert.equal(usageComplete(complete, "cost"), true);
 });
 
 test("hierarchy follows recorded parents and terminates for orphaned or cyclic data", () => {

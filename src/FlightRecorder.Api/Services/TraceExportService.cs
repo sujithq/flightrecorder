@@ -26,11 +26,16 @@ public sealed class TraceExportService(TraceRedactor redactor)
             {
                 Text("flightrecorder.event.id", evt.Id.ToString()),
                 Text("flightrecorder.event.type", evt.Type.ToString()),
-                Text("flightrecorder.event.status", evt.Status.ToString()),
-                Integer("gen_ai.usage.input_tokens", evt.InputTokens),
-                Integer("gen_ai.usage.output_tokens", evt.OutputTokens),
-                new { key = "flightrecorder.estimated_cost", value = new { doubleValue = (double)evt.EstimatedCost } }
+                Text("flightrecorder.event.status", evt.Status.ToString())
             };
+            if (evt.InputTokens is { } inputTokens) attributes.Add(Integer("gen_ai.usage.input_tokens", inputTokens));
+            if (evt.OutputTokens is { } outputTokens) attributes.Add(Integer("gen_ai.usage.output_tokens", outputTokens));
+            if (evt.EstimatedCost is { } cost)
+            {
+                attributes.Add(new { key = "flightrecorder.estimated_cost", value = new { doubleValue = (double)cost } });
+                attributes.Add(Text("flightrecorder.cost_currency", "USD"));
+                if (evt.CostBasis is { } basis) attributes.Add(Text("flightrecorder.cost_basis", basis));
+            }
             (string Key, string? Value)[] metadata =
             [
                 ("gen_ai.agent.name", evt.AgentName), ("gen_ai.agent.version", evt.AgentVersion),
@@ -67,14 +72,24 @@ public sealed class TraceExportService(TraceRedactor redactor)
             !(viewerBaseUri.Scheme == "http" && viewerBaseUri.IsLoopback)))
             throw new ArgumentException("Viewer URL must use HTTPS or loopback HTTP.", nameof(viewerBaseUri));
         var metrics = TraceViewService.Metrics(run);
+        var tokens = metrics.InputTokens.HasValue || metrics.OutputTokens.HasValue
+            ? ((metrics.InputTokens ?? 0) + (metrics.OutputTokens ?? 0)).ToString(CultureInfo.InvariantCulture) +
+                (run.Usage.TokensComplete ? "" : " (partial)")
+            : "Not reported";
+        var cost = metrics.EstimatedCost is { } estimate
+            ? (estimate is > 0 and < 0.0001m ? "<$0.0001" : estimate.ToString("$0.0000", CultureInfo.InvariantCulture)) +
+                (run.Usage.CostComplete ? "" : " (partial)")
+            : "Not reported";
         var summary = new StringBuilder()
             .AppendLine($"## Agent Flight Recorder: {run.Status}")
             .AppendLine()
             .AppendLine($"Run `{run.Id}` | Agent: {Markdown(run.EntryPointAgent)}")
             .AppendLine()
-            .AppendLine("| Events | Duration | Tokens | Estimated cost (USD) |")
+            .AppendLine("| Events | Duration | Reported tokens | Reported estimate (USD) |")
             .AppendLine("| ---: | ---: | ---: | ---: |")
-            .AppendLine(FormattableString.Invariant($"| {metrics.EventCount} | {metrics.DurationMilliseconds / 1000:0.###} s | {metrics.InputTokens + metrics.OutputTokens} | ${metrics.EstimatedCost:0.0000} |"));
+            .AppendLine(FormattableString.Invariant($"| {metrics.EventCount} | {metrics.DurationMilliseconds / 1000:0.###} s | {tokens} | {cost} |"))
+            .AppendLine()
+            .AppendLine("Usage totals cover reported events only, not unobserved model calls. Missing usage or pricing is not zero. USD estimates are not Copilot billing credits.");
         var details = new StringBuilder("## Decision evidence\n\n");
         var detailBytes = Encoding.UTF8.GetByteCount(details.ToString());
         var listedEvents = 0;
@@ -125,9 +140,9 @@ public sealed class TraceExportService(TraceRedactor redactor)
     {
         var alert = run.Events.FirstOrDefault(evt => evt.Status is FlightEventStatus.Blocked or
             FlightEventStatus.RequiresApproval or FlightEventStatus.Failed);
-        return new BadgeSummary(1, run.Id.ToString(), BadgeText(run.EntryPointAgent, 28), run.Status.ToString(),
-            run.Events.Count, run.Events.Sum(evt => (long)evt.InputTokens + evt.OutputTokens),
-            Math.Round(run.Duration.TotalSeconds, 1), run.EstimatedCost,
+        return new BadgeSummary(2, run.Id.ToString(), BadgeText(run.EntryPointAgent, 28), run.Status.ToString(),
+            run.Events.Count, run.Usage.TokensComplete ? run.InputTokens + run.OutputTokens : null,
+            Math.Round(run.Duration.TotalSeconds, 1), run.Usage.CostComplete ? run.EstimatedCost : null,
             alert is null ? null : BadgeText(alert.Name, 64));
     }
 

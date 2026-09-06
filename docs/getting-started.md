@@ -126,6 +126,7 @@ Invoke-RestMethod `
     inputTokens = 800
     outputTokens = 200
     estimatedCost = 0.02
+    costBasis = "Synthetic USD example estimate, not real provider pricing"
     input = "Analyze deployment logs"
     output = "Deployment failed because approval was missing"
   } | ConvertTo-Json)
@@ -246,6 +247,7 @@ $modelCall = Invoke-RestMethod `
     inputTokens = 1250
     outputTokens = 340
     estimatedCost = 0.018
+    costBasis = "Synthetic USD example estimate, not real provider pricing"
     input = "Issue text and repository context; api_key=demo-secret"
     output = "Update the service, add regression tests, and run the targeted test project."
   } | ConvertTo-Json)
