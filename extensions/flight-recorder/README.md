@@ -165,6 +165,17 @@ Stop, restart, rebuild, and installing a newer VSIX do not intentionally delete 
 The repository's separate Compose deployment is left untouched.
 
 After installing an updated VSIX, explicitly use **Rebuild / Update Local Recorder**.
+The viewer shows **Recorder vX.Y.Z** below its title, on desktop and mobile. This
+comes from the running API, not the VSIX currently installed in the editor, so it
+keeps showing the old release until the server is updated. Use **Refresh runs** or
+reload the viewer after an upgrade to refresh the label.
+
+An unversioned source deployment shows **Development build**; an older/unreachable
+API without version metadata shows **Version unavailable** rather than guessing.
+The extension supplies release metadata automatically for newly created/rebuilt
+managed containers. Existing containers need **Rebuild / Update Local Recorder**
+once to acquire the metadata/endpoint; installing the VSIX alone does not add them.
+
 Source version and hashes are checked before building. Build failure leaves the current
 running container in place. Startup failures are surfaced in the Output channel; database
 downgrades and automatic rollback are not supported. The extension does not automatically

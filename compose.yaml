@@ -15,6 +15,7 @@ services:
       FlightRecorder__PublicBaseUrl: "http://localhost:5080"
       FlightRecorder__Storage__DataDirectory: "/data"
       FlightRecorder__Storage__MaxCompletedRuns: "${FLIGHTRECORDER_MAX_COMPLETED_RUNS:-10}"
+      FlightRecorder__ReleaseVersion: "${FLIGHTRECORDER_VERSION:-}"
 
 volumes:
   recorder-data:

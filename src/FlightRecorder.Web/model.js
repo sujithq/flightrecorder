@@ -10,6 +10,15 @@ export const statusName = value => enumName(value, statuses);
 export const eventTypeName = value => enumName(value, eventTypes);
 export const recordingModeName = value => enumName(value, recordingModes);
 
+export function recorderVersionLabel(info) {
+  if (info?.version === null) return "Development build";
+  if (typeof info?.version !== "string" || info.version.length > 64 ||
+      !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(info.version)) {
+    throw new Error("Recorder release version metadata is invalid.");
+  }
+  return `Recorder v${info.version}`;
+}
+
 export function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, character => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"

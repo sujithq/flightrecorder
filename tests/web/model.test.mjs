@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   statusName, eventTypeName, recordingModeName, escapeHtml, durationMs,
-  formatDuration, formatNumber, formatCost, formatUsage, reportedTokens, usageComplete, usageLabel, eventDepth, timelineBounds
+  formatDuration, formatNumber, formatCost, formatUsage, reportedTokens, usageComplete, usageLabel, recorderVersionLabel, eventDepth, timelineBounds
 } from "../../src/FlightRecorder.Web/model.js";
 
 test("API enums accept numeric values and known string names only", () => {
@@ -13,6 +13,16 @@ test("API enums accept numeric values and known string names only", () => {
   assert.equal(eventTypeName(4), "PolicyDecision");
   assert.equal(recordingModeName(0), "MetadataOnly");
   assert.equal(eventTypeName(99), "Unknown");
+});
+
+test("viewer version labels require actual runtime metadata, never a guessed extension version", () => {
+  assert.equal(recorderVersionLabel({ version: "1.0.0" }), "Recorder v1.0.0");
+  assert.equal(recorderVersionLabel({ version: "1.1.0-rc.1+abc" }), "Recorder v1.1.0-rc.1+abc");
+  assert.equal(recorderVersionLabel({ version: null }), "Development build");
+  for (const info of [null, {}, { version: 1 }, { version: "" }, { version: "<script>" },
+    { version: "v1.0.0" }, { version: "01.0.0" }, { version: `1.0.0+${"a".repeat(70)}` }]) {
+    assert.throws(() => recorderVersionLabel(info), /metadata is invalid/);
+  }
 });
 
 test("trace content is escaped in text and attribute contexts", () => {

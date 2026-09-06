@@ -13,7 +13,7 @@ import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./styles.css";
 import {
   escapeHtml, statusName, eventTypeName, recordingModeName, durationMs,
-  formatDuration, formatNumber, formatCost, formatUsage, reportedTokens, usageComplete, usageLabel, eventDepth, timelineBounds
+  formatDuration, formatNumber, formatCost, formatUsage, reportedTokens, usageComplete, usageLabel, recorderVersionLabel, eventDepth, timelineBounds
 } from "./model.js";
 
 const icons = {
@@ -29,7 +29,7 @@ const state = {
   runs: [], run: null, graph: null, comparison: null, selectedEvent: query.get("event"),
   selectedEdge: null, view: views.includes(query.get("view")) ? query.get("view") : "timeline",
   baseline: query.get("baseline"), search: "", filter: "all", policyFilter: "all",
-  changeFilter: "all", zoom: null, replayIndex: -1, replayTimer: null, generation: 0
+  changeFilter: "all", zoom: null, replayIndex: -1, replayTimer: null, generation: 0, versionGeneration: 0
 };
 const element = selector => document.querySelector(selector);
 const icon = name => `<i data-lucide="${name}" aria-hidden="true"></i>`;
@@ -63,6 +63,25 @@ function notify(message, failure = true) {
     close.addEventListener("click", () => { banner.hidden = true; });
     banner.append(close);
     refreshIcons();
+  }
+}
+
+async function refreshVersion() {
+  const generation = ++state.versionGeneration;
+  const label = element("#recorder-version");
+  try {
+    const info = await api("info", { cache: "no-store" });
+    if (generation !== state.versionGeneration) return;
+    label.textContent = recorderVersionLabel(info);
+    label.dataset.state = "ready";
+    label.title = info.version === null
+      ? "This server has no release version metadata. It is not the installed VSIX version."
+      : "Version of the running recorder API and viewer. Installing a VSIX alone does not upgrade the server.";
+  } catch (error) {
+    if (generation !== state.versionGeneration) return;
+    label.textContent = "Version unavailable";
+    label.dataset.state = "error";
+    label.title = `${error.message} Use Refresh runs to retry; traces remain available independently.`;
   }
 }
 
@@ -441,7 +460,7 @@ document.addEventListener("keydown", event => {
 
 element("#run-search").addEventListener("input", event => { state.search = event.target.value; renderRuns(); });
 element("#status-filter").addEventListener("change", event => { state.filter = event.target.value; renderRuns(); });
-element("#refresh").addEventListener("click", () => refreshRuns());
+element("#refresh").addEventListener("click", () => { void refreshVersion(); void refreshRuns(); });
 document.addEventListener("change", event => {
   if (event.target.id === "policy-filter") { state.policyFilter = event.target.value; renderPolicies(); }
   if (event.target.id === "baseline-select") { state.baseline = event.target.value; void loadComparison(); }
@@ -456,4 +475,5 @@ document.addEventListener("click", event => {
 setInterval(() => { if (!document.hidden) void refreshRuns(); }, 8000);
 window.addEventListener("pagehide", stopReplay);
 refreshIcons();
+void refreshVersion();
 void refreshRuns(true);

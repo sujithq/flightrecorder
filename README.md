@@ -48,6 +48,7 @@ See [feature setup and limitations](docs/nice-to-haves.md) and the [Badger2040 g
 
 ## API
 
+- `GET /api/info` returns the running deployment's release version for the viewer header (`null` for unversioned development builds).
 - `POST /api/runs` starts a run. Choose `MetadataOnly`, `Redacted`, or `Full` recording.
 - `POST /api/runs/{runId}/events` records a structured event.
 - `POST /api/runs/{runId}/complete` closes a run.
@@ -106,6 +107,14 @@ dotnet run --project src\FlightRecorder.Api --launch-profile http
 ```
 
 This development profile listens on `http://localhost:5205`. Use that URL explicitly in the panel or helpers when inspecting native runs. Repository MCP clients still target Docker on `5080`; to test the native API through those unchanged configurations, stop the Docker recorder first and add `--urls http://localhost:5080` to the native command. Docker's internal port `8080` and the isolated browser-test port `5081` are separate and should not be changed.
+
+The viewer header shows the **running recorder version**, independently of the
+installed VSIX. Managed VSIX deployments set it from their saved release version.
+Unversioned checkout builds display **Development build**; when deliberately
+deploying a known checkout release, set `FLIGHTRECORDER_VERSION` before recreating
+the repository Compose container, or `FlightRecorder__ReleaseVersion` before native
+startup. Use the version of the source actually deployed, not a newer installed
+extension. Missing/unreachable version endpoints display **Version unavailable**.
 
 ## Token usage and cost
 

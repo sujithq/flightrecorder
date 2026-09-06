@@ -361,7 +361,7 @@ class LocalRecorder {
         ports: [{ target: 8080, published: String(config.port), host_ip: "127.0.0.1", protocol: "tcp" }],
         volumes: [{ type: "volume", source: "data", target: "/data" }],
         environment: { FlightRecorder__EnableDemo: "false", FlightRecorder__PublicBaseUrl: `http://127.0.0.1:${config.port}`,
-          FlightRecorder__Storage__DataDirectory: "/data" }
+          FlightRecorder__Storage__DataDirectory: "/data", FlightRecorder__ReleaseVersion: config.version }
       } },
       volumes: { data: { name: identity.volumeName, labels: this._labels(identity) } }
     };

@@ -147,6 +147,9 @@ test("the released VSIX builds and runs from its own source without a checkout o
   assert.ok(cleanup, "No scoped cleanup target was captured");
   const origin = state.origin;
   await recorder.probe(origin);
+  const info = await fetch(`${origin}/api/info`, { signal: AbortSignal.timeout(15000) });
+  assert.equal(info.status, 200);
+  assert.equal((await info.json()).version, manifest.version);
   const html = await (await fetch(`${origin}/`, { signal: AbortSignal.timeout(15000) })).text();
   const assets = [...html.matchAll(/<(?:script|link)\b[^>]*(?:src|href)="([^"]+)"/g)].map(match => new URL(match[1], origin));
   assert.ok(assets.some(url => url.pathname.endsWith(".js")));

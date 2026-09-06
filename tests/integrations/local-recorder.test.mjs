@@ -273,6 +273,10 @@ test("setup renders isolated Compose and is idempotent across new runtime object
   assert.equal(compose.services.recorder.restart, "no");
   assert.equal(compose.services.recorder.ports[0].host_ip, "127.0.0.1");
   assert.equal(compose.services.recorder.environment.FlightRecorder__EnableDemo, "false");
+  assert.equal(compose.services.recorder.environment.FlightRecorder__ReleaseVersion, first.version);
+  const newerExtension = await f.makeRuntime({ version: "9.0.0" }).setup();
+  assert.equal(newerExtension.version, first.version, "installing another VSIX does not change the running release");
+  assert.equal(JSON.parse(await readFile(composePath, "utf8")).services.recorder.environment.FlightRecorder__ReleaseVersion, first.version);
   assert.equal(compose.services.recorder.user, undefined, "Dockerfile's non-root USER remains authoritative");
   assert.ok(path.isAbsolute(compose.services.recorder.build.context));
   assert.ok(compose.services.recorder.build.context.includes("$$"), "Compose literal dollar paths are escaped");

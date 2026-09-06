@@ -1,6 +1,7 @@
 using FlightRecorder.Api.Services;
 using FlightRecorder.Api.Tools;
 using ModelContextProtocol.Server;
+using System.Text.RegularExpressions;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
@@ -40,6 +41,17 @@ app.Use(async (context, next) =>
 });
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.MapGet("/api/info", IResult (HttpContext context, IConfiguration configuration) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    var version = configuration["FlightRecorder:ReleaseVersion"]?.Trim();
+    if (string.IsNullOrEmpty(version)) return Results.Ok(new { version = (string?)null });
+    if (version.Length > 64 || !Regex.IsMatch(version,
+        @"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$",
+        RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(100)))
+        return Results.Problem(statusCode: 503, title: "Recorder release version metadata is invalid.");
+    return Results.Ok(new { version });
+});
 app.MapControllers();
 app.MapMcp("/mcp");
 app.Run();

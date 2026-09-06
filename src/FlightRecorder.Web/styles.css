@@ -38,6 +38,9 @@ button, h1, h2, h3, p, dd, code { overflow-wrap: anywhere; }
 .brand, .header-actions, .run-actions, .command, .run-subtitle, .run-subtitle > span, .eyebrow, .status, .panel-toolbar, .replay-tools, .zoom-tools, .inspector-heading, .legend, .legend > span { display: flex; align-items: center; }
 .brand { gap: 12px; min-width: 0; }
 .brand h1 { font-size: 21px; font-weight: 600; line-height: 1.2; }
+.brand-text { min-width: 0; }
+.recorder-version { display: block; margin-top: 4px; color: var(--muted); font: 11px "IBM Plex Mono", monospace; overflow-wrap: anywhere; }
+.recorder-version[data-state="error"] { color: var(--amber); }
 .brand-mark { width: 38px; height: 38px; background: #e4f0ef; color: #087e82; border: 1px solid #bad8d5; display: grid; place-items: center; border-radius: 6px; flex: 0 0 auto; }
 .brand-mark svg { width: 23px; height: 23px; }
 .header-actions { gap: 12px; flex: 0 0 auto; }

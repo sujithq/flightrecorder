@@ -86,6 +86,42 @@ test("trace text stays inert and missing runs surface a recoverable error", asyn
   await expect(page.locator("#run-overview h2")).toBeVisible();
 });
 
+test("running recorder version is visible even without a selected run and refreshes independently", async ({ page }, testInfo) => {
+  await page.route("**/api/runs", route => route.fulfill({ json: [] }));
+  let version = "1.0.0";
+  await page.route("**/api/info", route => route.fulfill({ json: { version } }));
+  await page.goto("/");
+  const label = page.getByRole("status", { name: "Recorder version" });
+  await expect(label).toBeVisible();
+  await expect(label).toHaveText("Recorder v1.0.0");
+  await expect(page.getByRole("heading", { name: "No run selected" })).toBeVisible();
+  version = "1.1.0-rc.1+build";
+  await page.getByRole("button", { name: "Refresh runs", exact: true }).click();
+  await expect(label).toHaveText("Recorder v1.1.0-rc.1+build");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy();
+  await page.screenshot({ path: testInfo.outputPath("version-header.png"), scale: "css" });
+});
+
+test("development and unavailable versions do not hide the viewer or pretend to be a release", async ({ page }) => {
+  await page.route("**/api/runs", route => route.fulfill({ json: [] }));
+  await page.route("**/api/info", route => route.fulfill({ json: { version: null } }));
+  await page.goto("/");
+  const label = page.getByRole("status", { name: "Recorder version" });
+  await expect(label).toHaveText("Development build");
+  await page.unroute("**/api/info");
+  await page.route("**/api/info", route => route.fulfill({ status: 404, json: { title: "No version endpoint" } }));
+  await page.getByRole("button", { name: "Refresh runs", exact: true }).click();
+  await expect(label).toHaveText("Version unavailable");
+  await expect(label).toHaveAttribute("data-state", "error");
+  await expect(label).toHaveAttribute("title", /No version endpoint/);
+  await expect(page.getByRole("heading", { name: "No run selected" })).toBeVisible();
+  await page.unroute("**/api/info");
+  await page.route("**/api/info", route => route.fulfill({ json: { version: '<img src=x onerror="globalThis.versionInjected=true">' } }));
+  await page.getByRole("button", { name: "Refresh runs", exact: true }).click();
+  await expect(label).toHaveText("Version unavailable");
+  expect(await page.evaluate(() => globalThis.versionInjected)).toBeUndefined();
+});
+
 test("missing, zero and partial usage are distinct in overview, inspector and comparison", async ({ page, request }) => {
   const create = async (name, events) => {
     const response = await request.post("/api/runs", { data: {
