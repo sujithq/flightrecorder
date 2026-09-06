@@ -14,6 +14,8 @@ dotnet run --project src\FlightRecorder.Api --launch-profile http
 
 The API and viewer listen at `http://localhost:5205`. Keep this terminal open while using them. The viewer's **Demo run** menu creates synthetic blocked and approved runs for graph, policy and comparison exploration. See [the optional feature guide](nice-to-haves.md) for OTLP, GitHub, VS Code and Badger2040 setup.
 
+Native runs now persist to SQLite in the current user's local application data directory (`%LOCALAPPDATA%\FlightRecorder` on Windows). The latest 10 completed runs and all unfinished runs survive restarts. For automatic Docker startup with a persistent volume, use `docker compose up --build --detach` and port 5080 instead of 5205 in the examples below. Repository MCP configurations already target Docker on 5080. See [retention configuration](nice-to-haves.md#trace-persistence) before changing the limit or deleting a volume.
+
 ## 2. Start a recorded run
 
 Open another PowerShell terminal and run:
@@ -40,7 +42,7 @@ Recording modes:
 |---:|---|---|
 | `0` | MetadataOnly | Omits request content, objectives, input/output and non-allowlisted attributes; redacts retained metadata |
 | `1` | Redacted | Redacts known PII/secret patterns across requests, event content and metadata before storage |
-| `2` | Full | Retains unredacted content locally; use only with explicitly approved synthetic or non-sensitive data |
+| `2` | Full | Retains unredacted content in memory and on disk; use only with explicitly approved synthetic or non-sensitive data |
 
 ## 3. Record an agent event
 

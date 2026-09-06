@@ -1,11 +1,10 @@
-using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
 using FlightRecorder.Api.Models;
 
 namespace FlightRecorder.Api.Services;
 
-public sealed class InMemoryFlightRecorderService : IFlightRecorderService
+public sealed class FlightRecorderService : IFlightRecorderService
 {
     private static readonly HashSet<string> MetadataKeys = new(StringComparer.Ordinal)
     {
@@ -14,11 +13,12 @@ public sealed class InMemoryFlightRecorderService : IFlightRecorderService
         "gen_ai.data.classification"
     };
     private readonly TraceRedactor redactor;
-    private readonly ConcurrentDictionary<Guid, TraceRun> runs = new();
+    private readonly ITraceRunStore store;
 
-    public InMemoryFlightRecorderService(TraceRedactor? redactor = null)
+    public FlightRecorderService(TraceRedactor? redactor = null, ITraceRunStore? store = null)
     {
         this.redactor = redactor ?? new TraceRedactor();
+        this.store = store ?? new InMemoryTraceRunStore();
     }
 
     public TraceRun StartRun(StartRunRequest request)
@@ -28,57 +28,56 @@ public sealed class InMemoryFlightRecorderService : IFlightRecorderService
         var run = new TraceRun(Guid.NewGuid(), Protect(mode, request.Request.Trim()) ?? "[Content omitted]",
             Metadata(mode, request.EntryPointAgent.Trim())!, Metadata(mode, request.RequestingIdentity.Trim())!,
             mode, DateTimeOffset.UtcNow, null, []);
-        runs[run.Id] = run;
+        store.Add(run);
         return run;
     }
 
-    public TraceRun? GetRun(Guid runId) => runs.TryGetValue(runId, out var run) ? run : null;
+    public TraceRun? GetRun(Guid runId) => store.Get(runId);
 
-    public IReadOnlyList<RunSummary> ListRuns() => runs.Values
-        .OrderByDescending(r => r.StartedAt)
-        .Select(r => new RunSummary(r.Id, r.Request, r.EntryPointAgent, r.RequestingIdentity, r.Status,
-            r.StartedAt, r.EndedAt, r.Duration, r.Events.Count, r.InputTokens, r.OutputTokens, r.EstimatedCost))
+    public IReadOnlyList<RunSummary> ListRuns() => store.List()
+        .OrderByDescending(run => run.StartedAt)
+        .Select(run => new RunSummary(run.Id, run.Request, run.EntryPointAgent, run.RequestingIdentity, run.Status,
+            run.StartedAt, run.EndedAt, run.Duration, run.Events.Count, run.InputTokens, run.OutputTokens, run.EstimatedCost))
         .ToArray();
 
     public FlightEvent? RecordEvent(Guid runId, RecordEventRequest request)
     {
-        if (!runs.TryGetValue(runId, out var current)) return null;
-        Validator.ValidateObject(request, new ValidationContext(request), true);
-        if (request.ParentEventId is { } parentId && current.Events.All(evt => evt.Id != parentId))
-            throw new ArgumentException("Parent event must already exist in the same run.", nameof(request));
-        var mode = current.RecordingMode;
-        var evt = new FlightEvent(Guid.NewGuid(), runId, request.Type, Metadata(mode, request.Name.Trim())!, request.StartedAt,
-            request.EndedAt, request.Status, Metadata(mode, request.AgentName), Metadata(mode, request.AgentVersion), Metadata(mode, request.Model),
-            Metadata(mode, request.ToolServer), Metadata(mode, request.Identity), Protect(mode, request.Objective),
-            Metadata(mode, request.RequestedScope), Metadata(mode, request.GrantedScope),
-            Metadata(mode, request.PolicyName), Metadata(mode, request.PolicyReason), request.InputTokens, request.OutputTokens,
-            request.EstimatedCost, Protect(mode, request.Input), Protect(mode, request.Output),
-            ProtectAttributes(mode, request.Attributes), request.ParentEventId);
-        while (!runs.TryUpdate(runId, current with { Events = [.. current.Events, evt] }, current))
-            current = runs[runId];
+        FlightEvent? evt = null;
+        store.Update(runId, current =>
+        {
+            Validator.ValidateObject(request, new ValidationContext(request), true);
+            if (request.ParentEventId is { } parentId && current.Events.All(parent => parent.Id != parentId))
+                throw new ArgumentException("Parent event must already exist in the same run.", nameof(request));
+            var mode = current.RecordingMode;
+            evt = new FlightEvent(Guid.NewGuid(), runId, request.Type, Metadata(mode, request.Name.Trim())!, request.StartedAt,
+                request.EndedAt, request.Status, Metadata(mode, request.AgentName), Metadata(mode, request.AgentVersion), Metadata(mode, request.Model),
+                Metadata(mode, request.ToolServer), Metadata(mode, request.Identity), Protect(mode, request.Objective),
+                Metadata(mode, request.RequestedScope), Metadata(mode, request.GrantedScope),
+                Metadata(mode, request.PolicyName), Metadata(mode, request.PolicyReason), request.InputTokens, request.OutputTokens,
+                request.EstimatedCost, Protect(mode, request.Input), Protect(mode, request.Output),
+                ProtectAttributes(mode, request.Attributes), request.ParentEventId);
+            return current with { Events = [.. current.Events, evt] };
+        });
         return evt;
     }
 
     public bool CompleteRun(Guid runId, DateTimeOffset? endedAt = null)
     {
-        if (!runs.TryGetValue(runId, out var current)) return false;
         var completionTime = endedAt ?? DateTimeOffset.UtcNow;
-        while (!runs.TryUpdate(runId, current with { EndedAt = completionTime }, current))
-            current = runs[runId];
-        return true;
+        return store.Update(runId, current => current with { EndedAt = completionTime }) is not null;
     }
 
     public RootCauseAnalysis? Analyze(Guid runId)
     {
         var run = GetRun(runId);
         if (run is null) return null;
-        var blocked = run.Events.FirstOrDefault(e => e.Status is FlightEventStatus.Blocked or FlightEventStatus.RequiresApproval);
-        var failed = run.Events.FirstOrDefault(e => e.Status == FlightEventStatus.Failed);
+        var blocked = run.Events.FirstOrDefault(evt => evt.Status is FlightEventStatus.Blocked or FlightEventStatus.RequiresApproval);
+        var failed = run.Events.FirstOrDefault(evt => evt.Status == FlightEventStatus.Failed);
         var failureEvent = blocked ?? failed;
-        var successful = run.Events.Where(e => e.Status == FlightEventStatus.Succeeded).ToArray();
+        var successful = run.Events.Where(evt => evt.Status == FlightEventStatus.Succeeded).ToArray();
         var evidence = new List<EvidenceReference>();
         if (failureEvent is not null) evidence.Add(new(failureEvent.Id, "Primary failure"));
-        evidence.AddRange(successful.Take(5).Select(e => new EvidenceReference(e.Id, $"Succeeded: {e.Name}")));
+        evidence.AddRange(successful.Take(5).Select(evt => new EvidenceReference(evt.Id, $"Succeeded: {evt.Name}")));
 
         if (failureEvent is null)
         {
@@ -95,7 +94,7 @@ public sealed class InMemoryFlightRecorderService : IFlightRecorderService
             $"{failureEvent.Name} was {failureEvent.Status.ToString().ToLowerInvariant()}.",
             reason,
             successful.Length == 0 ? "No events succeeded before the failure." :
-                $"{successful.Length} event(s) succeeded before the failure: {string.Join(", ", successful.Select(e => e.Name))}.",
+                $"{successful.Length} event(s) succeeded before the failure: {string.Join(", ", successful.Select(evt => evt.Name))}.",
             next, evidence);
     }
 

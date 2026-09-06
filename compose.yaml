@@ -8,6 +8,13 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:5080:8080"
+    volumes:
+      - recorder-data:/data
     environment:
       FlightRecorder__EnableDemo: "true"
       FlightRecorder__PublicBaseUrl: "http://localhost:5080"
+      FlightRecorder__Storage__DataDirectory: "/data"
+      FlightRecorder__Storage__MaxCompletedRuns: "${FLIGHTRECORDER_MAX_COMPLETED_RUNS:-10}"
+
+volumes:
+  recorder-data:

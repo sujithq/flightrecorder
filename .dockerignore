@@ -3,6 +3,13 @@
 **/TestResults/
 **/node_modules/
 artifacts/
+data/
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite-*
+**/*.sqlite3
+**/*.sqlite3-*
 src/FlightRecorder.Api/wwwroot/
 .squad/
 .copilot/

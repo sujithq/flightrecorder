@@ -43,7 +43,7 @@ See [feature setup and limitations](docs/nice-to-haves.md) and the [Badger2040 g
 - `GET /api/runs/{runId}/exports/github` returns a GitHub check payload without a commit SHA.
 - `GET /api/runs/{runId}/badge` and `GET /api/badger/latest` return compact device summaries.
 
-The store is in-memory and resets when the process stops. There is no authentication or authorization layer: keep the prototype on loopback and use synthetic data. Recording policy decisions does not enforce permissions. Diagnosis is deterministic and evidence-linked, not a model-generated explanation. Full recording is opt-in and is not redacted in the local viewer.
+The API stores traces in embedded SQLite, with no separate database server or hosting fee. It retains the latest 10 completed runs by default and all unfinished runs. There is no authentication or authorization layer: keep the prototype on loopback and use synthetic data. Recording policy decisions do not enforce permissions. Diagnosis is deterministic and evidence-linked, not a model-generated explanation. Full recording is opt-in and remains unredacted in both the viewer and stored trace.
 
 ## GitHub Copilot integration
 
@@ -72,7 +72,24 @@ docker compose start
 
 `stop` deliberately disables automatic restart until `start` or `up` is run again. `docker compose down` removes the service entirely. To rebuild after code changes, rerun `docker compose up --build --detach`.
 
-Run history is still in-memory: replacing or restarting the API clears it. Automatic startup does not add durable trace storage. Stop any older recorder container bound to port 5080 before the first Compose startup; stopping an older `--rm` container also removes it and clears its history.
+Run history is stored in `/data/traces.db` on the `recorder-data` named volume. It survives API crashes, Docker restarts, image updates, container recreation, and `docker compose down` followed by `up`. The container runs as its existing non-root user, with an owner-only data directory. Stop any older recorder container bound to port 5080 before the first Compose startup.
+
+## Trace retention
+
+Completed runs have an `endedAt` value, regardless of success, failure or a policy block. The newest 10 are retained by completion time, then start time and run ID for deterministic ties. All unfinished runs remain, including interrupted workflows, so the total can exceed 10. An unfinished status does not prove the original agent is still running; the same run ID can receive more events or be explicitly completed through the existing API/MCP tools.
+
+To retain a different number in Docker:
+
+```powershell
+$env:FLIGHTRECORDER_MAX_COMPLETED_RUNS = "25"
+docker compose up --detach
+```
+
+The setting must be positive and takes effect when the container is recreated. Omit it to use 10. Completion and startup enforce the limit; reducing it deletes older completed runs, while increasing it cannot restore deleted traces. Pruned run IDs return not found. Every successful recording operation is committed before its response; storage failures do not silently fall back to memory.
+
+Native `dotnet run` uses the current user's local application data directory (`%LOCALAPPDATA%\FlightRecorder\traces.db` on Windows). Override it with an absolute `FlightRecorder__Storage__DataDirectory` and set `FlightRecorder__Storage__MaxCompletedRuns` for native retention. Docker and native defaults use separate databases; do not point concurrent instances at the same directory.
+
+**The first upgrade from the old in-memory service starts fresh; existing volatile history is not imported.** Persistence applies to runs recorded after deployment. Keep the named volume: `docker compose down -v`, explicit volume deletion, or Docker data reset can erase history. A volume is not a backup and does not protect against disk/machine loss. Retention is a run-count limit, not a disk quota or secure deletion guarantee; unfinished traces can keep growing. See [storage and privacy details](docs/nice-to-haves.md#trace-persistence).
 
 ## Contributing and security
 
@@ -89,6 +106,8 @@ npm run test:e2e
 npm run package:vscode
 ```
 
-Python 3.11+ is needed only for badge tests. Browser tests use installed Edge on Windows; elsewhere run `npx playwright install chromium` first. Playwright starts the built API automatically, or targets `FLIGHTRECORDER_URL` when specified. The VSIX is written to `artifacts/flight-recorder-0.1.0.vsix`.
+Python 3.11+ is needed only for badge tests. Browser tests use installed Edge on Windows; elsewhere run `npx playwright install chromium` first. Playwright starts the built API on port 5081 with a temporary database and does not reuse the Docker service on 5080. Setting `FLIGHTRECORDER_URL` explicitly targets that server and may change its trace history. The VSIX is written to `artifacts/flight-recorder-0.1.0.vsix`.
+
+After `docker compose build recorder`, run `npm run test:persistence` to check crash recovery, recreation and configurable retention using a disposable Docker project, volume and random loopback port. It does not modify the running recorder or its volume.
 
 Squad is installed locally and pinned in the lockfile. Use `npm run squad:check` for diagnostics and `npm run squad -- --help` for its commands.

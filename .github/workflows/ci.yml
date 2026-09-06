@@ -65,7 +65,10 @@ jobs:
         run: npx playwright test
 
       - name: Build container image
-        run: docker build --tag flightrecorder:ci .
+        run: docker build --tag flightrecorder:ci --tag flightrecorder:local .
+
+      - name: Test container trace persistence
+        run: npm run test:persistence
 
       - name: Upload test results
         if: always()

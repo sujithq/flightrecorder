@@ -13,6 +13,15 @@ playwright-report/
 test-results/
 __pycache__/
 
+# Local trace databases and SQLite journals
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
 # Test results and coverage
 [Tt]est[Rr]esult*/
 *.trx

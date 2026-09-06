@@ -22,7 +22,7 @@ public sealed class PrivacyTests
     [Fact]
     public void Redaction_covers_run_metadata_event_fields_and_attributes_before_storage()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var run = service.StartRun(new StartRunRequest
         {
             Request = "Contact fixture@example.invalid token=synthetic-request",
@@ -56,7 +56,7 @@ public sealed class PrivacyTests
     [Fact]
     public void Metadata_only_omits_content_and_unapproved_attributes()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var run = service.StartRun(new StartRunRequest
         {
             Request = "synthetic request content",
@@ -83,7 +83,7 @@ public sealed class PrivacyTests
     [Fact]
     public void Full_mode_preserves_content_and_custom_patterns_are_supported()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var run = service.StartRun(new StartRunRequest
         {
             Request = "token=synthetic-value",

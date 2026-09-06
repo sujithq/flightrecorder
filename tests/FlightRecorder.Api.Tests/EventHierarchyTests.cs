@@ -6,7 +6,7 @@ namespace FlightRecorder.Api.Tests;
 
 public sealed class EventHierarchyTests
 {
-    private static TraceRun Start(InMemoryFlightRecorderService service) => service.StartRun(new StartRunRequest
+    private static TraceRun Start(FlightRecorderService service) => service.StartRun(new StartRunRequest
     {
         Request = "Synthetic trace", EntryPointAgent = "orchestrator", RequestingIdentity = "test"
     });
@@ -14,7 +14,7 @@ public sealed class EventHierarchyTests
     [Fact]
     public void Child_events_reference_a_parent_in_the_same_run()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var run = Start(service);
         var parent = service.RecordEvent(run.Id, new RecordEventRequest { Name = "agent", Type = FlightEventType.AgentSpan })!;
         var child = service.RecordEvent(run.Id, new RecordEventRequest { Name = "tool", ParentEventId = parent.Id })!;
@@ -29,7 +29,7 @@ public sealed class EventHierarchyTests
     [Fact]
     public void Parallel_ingestion_and_completion_do_not_lose_events()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var run = Start(service);
         Parallel.For(0, 200, index =>
         {
@@ -45,7 +45,7 @@ public sealed class EventHierarchyTests
     [Fact]
     public void Invalid_timing_and_enum_values_are_rejected()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var run = Start(service);
         Assert.Throws<ValidationException>(() => service.RecordEvent(run.Id,
             new RecordEventRequest { Name = "bad duration", EndedAt = DateTimeOffset.UnixEpoch }));

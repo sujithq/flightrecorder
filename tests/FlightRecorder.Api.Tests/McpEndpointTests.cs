@@ -1,13 +1,12 @@
 using System.Net.Http.Json;
-using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace FlightRecorder.Api.Tests;
 
-public sealed class McpEndpointTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class McpEndpointTests : IClassFixture<FlightRecorderApiFactory>
 {
     private readonly HttpClient client;
 
-    public McpEndpointTests(WebApplicationFactory<Program> factory)
+    public McpEndpointTests(FlightRecorderApiFactory factory)
     {
         client = factory.CreateClient();
     }

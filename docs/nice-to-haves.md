@@ -23,6 +23,67 @@ run as the baseline. Events match by parent path, event type, agent, name and
 occurrence number. Deltas are candidate minus baseline. Renamed operations appear
 as added/removed; this is structural comparison, not semantic matching or re-execution.
 
+## Trace persistence
+
+The API uses embedded SQLite inside the existing process. No database server,
+extra container or hosted storage subscription is required. Docker stores
+`/data/traces.db` and its journal in a named volume mounted at `/data`; the default
+Compose project names it `flightrecorder_recorder-data`. The runtime user owns
+the directory with owner-only permissions. Mount the directory, not just the
+database file, so SQLite can write its journal.
+
+The default retention is the latest **10 completed runs plus all unfinished runs**.
+Completion means `endedAt` is recorded, not simply that a status is failed or
+blocked. Completed runs are ordered by completion time, start time, then run ID.
+Pruning happens in the same transaction as completion and at startup, not while
+reading traces. Unfinished runs survive interruption without fabricated completion,
+new events or replayed tool actions. They can continue recording under the same ID.
+An unfinished status is not a liveness signal from the original agent.
+
+Configuration:
+
+| Setting | Default | Purpose |
+| --- | --- | --- |
+| `FlightRecorder:Storage:MaxCompletedRuns` | `10` | Positive count of completed runs to keep |
+| `FlightRecorder:Storage:DataDirectory` | User-local application data / `FlightRecorder` | Absolute writable data directory for native runs |
+| `FLIGHTRECORDER_MAX_COMPLETED_RUNS` | `10` | Compose override mapped to the API's retention setting |
+
+Compose sets the data directory to `/data`. For native Windows runs the default
+is `%LOCALAPPDATA%\FlightRecorder`; other platforms use .NET's
+`Environment.SpecialFolder.LocalApplicationData`. Override native settings through
+`FlightRecorder__Storage__DataDirectory` and `FlightRecorder__Storage__MaxCompletedRuns`.
+Use a private directory outside the checkout and web root. Local and Docker defaults
+are separate stores. This deployment supports one API instance per data directory,
+not shared network filesystems or multiple replicas.
+
+Change Docker retention with an environment variable and recreate the service:
+
+```powershell
+$env:FLIGHTRECORDER_MAX_COMPLETED_RUNS = "25"
+docker compose up --detach
+```
+
+Lowering the limit deletes older completed traces on the next startup; increasing
+it does not restore deleted data. Zero, negative or malformed limits and invalid
+directories fail startup. The first deployment of persistence starts with a new
+database; old in-memory history is not imported.
+
+Run creation, every event and completion commit before success is returned.
+SQLite uses transactions, rollback journaling and full synchronization. Disk-write
+failures roll back and return a generic REST 503 or an MCP failed-tool result,
+without exposing payloads or SQL parameters. Corrupt or unsupported databases fail
+startup rather than being replaced with empty state. A crash after commit but
+before a response reaches the client may still leave the write committed; retries
+are not automatically deduplicated.
+
+The volume survives API/container restarts, force recreation, and ordinary
+`docker compose down`/`up`. `docker compose down -v`, explicit volume deletion,
+Docker data reset or disk failure can destroy it. There is no backup system or
+encryption-at-rest. SQLite may retain freed pages for reuse, so pruning does not
+promise file shrinking or secure erasure. Unfinished runs are retained indefinitely:
+the run limit is not a byte quota. Do not delete database or journal files while
+the service is running; investigate storage errors before restarting it.
+
 ## OpenTelemetry
 
 The export menu downloads OTLP/HTTP JSON from
@@ -109,7 +170,7 @@ is useful only on the same machine, not from a remote GitHub runner.
 
 - **MetadataOnly** omits run request content, objectives, input/output and arbitrary attributes. Retained metadata is redacted, and attributes use a small semantic allowlist.
 - **Redacted** removes recognized secret assignments, authorization values, common token formats, email addresses, phone patterns and identifier patterns before storage. JSON bodies are parsed recursively; secret-keyed values are replaced.
-- **Full** retains raw local content. The UI, API and comparisons expose it to anyone who can reach the service, so use this mode only with explicit approval and appropriate data.
+- **Full** retains raw content in SQLite as well as the local viewer. The UI, API and comparisons expose it to anyone who can reach the service, and host administrators can read the stored data. Use this mode only with explicit approval and appropriate data.
 
 `FlightRecorder:RedactionPatterns` accepts additional regular expressions in the
 API configuration. For example, a synthetic organization identifier rule:
@@ -129,9 +190,11 @@ input/output, objectives and arbitrary attributes, even for Full-mode traces.
 Changing patterns affects new ingestion and subsequent exports, not content that
 has already been stored or exported.
 
-There is no authentication, access-control enforcement, encryption-at-rest,
-retention service or durable storage in this prototype. Do not expose it publicly
-or treat recording mode as an authorization boundary. Keep the API on loopback.
+Recording mode is preserved across restart. MetadataOnly and Redacted apply their
+protections before persistence; Full is not silently redacted on disk. There is
+no authentication, access-control enforcement or encryption-at-rest. Do not expose
+the prototype publicly or treat recording mode as an authorization boundary.
+Keep the API on loopback and protect access to its data directory and volume.
 
 ## Badger2040
 
@@ -145,5 +208,10 @@ Automated checks cover API/MCP behavior, graph hierarchy, concurrent recording,
 redaction, OTLP wire data and forwarding errors, GitHub payloads and size limits,
 comparison, badge framing/rendering, extension URL/CSP boundaries, and desktop/mobile
 viewer workflows. Browser screenshots are generated under `artifacts/browser/`.
+Persistence tests additionally verify reopened database snapshots, concurrent
+recording, retention, rollback on disk/database errors, corrupt schema rejection,
+and REST/MCP failure behavior. `npm run test:persistence` tests the built Docker
+image with its own disposable project and volume, including hard-crash recovery
+and recreation. Test data never shares the user's default database.
 Physical badge operation, the native VS Code host and remote forwarding, and live
 GitHub check publishing still require environment-specific acceptance checks.

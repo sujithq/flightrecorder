@@ -9,7 +9,7 @@ public sealed class FlightRecorderMcpToolsTests
     [Fact]
     public void Records_and_analyzes_a_complete_copilot_workflow()
     {
-        var tools = new FlightRecorderMcpTools(new InMemoryFlightRecorderService());
+        var tools = new FlightRecorderMcpTools(new FlightRecorderService());
         var run = tools.StartRun(
             "Fix issue #42 and create a pull request",
             "github-copilot",
@@ -58,7 +58,7 @@ public sealed class FlightRecorderMcpToolsTests
     [Fact]
     public void Returns_missing_results_for_an_unknown_run()
     {
-        var tools = new FlightRecorderMcpTools(new InMemoryFlightRecorderService());
+        var tools = new FlightRecorderMcpTools(new FlightRecorderService());
         var runId = Guid.NewGuid();
 
         Assert.Null(tools.RecordEvent(runId, FlightEventType.ToolCall, "missing-run"));

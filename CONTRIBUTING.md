@@ -8,7 +8,7 @@ Thank you for contributing to Agent Flight Recorder.
 - .NET SDK 10.0.303, as pinned by `global.json`
 - Node.js 24 LTS and npm
 - Python 3.11+ for the hardware-independent Badger2040 tests
-- Docker, only when validating container changes
+- Docker with Compose 2.24.4+ when validating container changes and durable storage
 
 ## Set up the repository
 
@@ -35,17 +35,22 @@ npm run test:e2e
 npm run package:vscode
 ```
 
-Browser tests start and stop the built API on port 5080. Windows uses installed Edge; other platforms need `npx playwright install chromium`. Set `PLAYWRIGHT_CHANNEL` to override the browser channel or `FLIGHTRECORDER_URL` to target a running service. The editor may not discover Node/Python or newly added .NET tests; the commands above are the authoritative checks.
+Browser tests start and stop the built API on port 5081 with an isolated temporary SQLite directory, removed after the run. They never reuse the user's recorder on 5080. API integration tests also use temporary databases through `FlightRecorderApiFactory`; direct unit tests use the in-memory store. Do not let tests write to a native user's local application data directory.
+
+Windows uses installed Edge; other platforms need `npx playwright install chromium`. Set `PLAYWRIGHT_CHANNEL` to override the browser channel. `FLIGHTRECORDER_URL` explicitly opts into testing a running service and can add/prune its traces, so use only a disposable test server. The editor may not discover Node/Python or newly added .NET tests; the commands above are the authoritative checks.
 
 No hardware or GitHub token is required for automated tests. Native VS Code panel behavior, physical Badger2040 updates, remote port forwarding, and publishing a live GitHub check need separate integration verification.
 
 When changing the container configuration, also run:
 
 ```powershell
-docker build --tag flightrecorder:dev .
+docker compose build recorder
+npm run test:persistence
 ```
 
-Generated `bin`, `obj`, web assets, VSIX, test-result, coverage, and local secret files must not be committed. Some legacy build outputs are tracked; do not mix unrelated generated changes into a feature commit.
+The persistence test uses its own project-scoped named volume and random loopback port. It runs as the image's non-root user, sends SIGKILL to the API, verifies automatic recovery, recreates the container, reduces retention to three completed runs, and performs `down`/`up` without deleting the volume. Only its uniquely named test resources are deleted during cleanup. Never run `docker compose down -v` against the user's recorder to test durability.
+
+Generated `bin`, `obj`, web assets, VSIX, test-result, coverage, database/journal files, and local secret files must not be committed. Some legacy build outputs are tracked; do not mix unrelated generated changes into a feature commit.
 
 ## Development guidelines
 
@@ -53,6 +58,7 @@ Generated `bin`, `obj`, web assets, VSIX, test-result, coverage, and local secre
 - Follow `.editorconfig` and existing C# conventions.
 - Add or update tests for behavior changes.
 - Preserve the privacy guarantees of each recording mode.
+- Persist only the already-protected TraceRun, commit before acknowledging writes, and prune only completed runs transactionally. Do not treat a blocked/failed status as completion without `EndedAt`.
 - Never add credentials, tokens, personal data, or captured sensitive payloads to tests or documentation.
 - Update documentation when changing the API, MCP tools, configuration, or setup process.
 

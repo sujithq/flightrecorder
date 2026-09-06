@@ -8,7 +8,7 @@ public sealed class InMemoryFlightRecorderServiceTests
     [Fact]
     public void Records_metadata_and_aggregates_run_usage()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var run = service.StartRun(new StartRunRequest
         {
             Request = "Fix failed deployment",
@@ -39,7 +39,7 @@ public sealed class InMemoryFlightRecorderServiceTests
     [Fact]
     public void Redacted_mode_removes_secret_values()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var run = service.StartRun(new StartRunRequest
         {
             Request = "Inspect logs",
@@ -62,7 +62,7 @@ public sealed class InMemoryFlightRecorderServiceTests
     [Fact]
     public void Unknown_run_operations_return_not_found_results()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var missingRunId = Guid.NewGuid();
 
         Assert.Null(service.GetRun(missingRunId));
@@ -78,7 +78,7 @@ public sealed class InMemoryFlightRecorderServiceTests
     [Fact]
     public void Analysis_links_policy_failure_and_successful_work()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var run = service.StartRun(new StartRunRequest
         {
             Request = "Create pull request",

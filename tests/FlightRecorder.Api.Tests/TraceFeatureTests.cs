@@ -3,16 +3,15 @@ using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using FlightRecorder.Api.Models;
 using FlightRecorder.Api.Services;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 
 namespace FlightRecorder.Api.Tests;
 
-public sealed class TraceFeatureTests : IClassFixture<WebApplicationFactory<Program>>
+public sealed class TraceFeatureTests : IClassFixture<FlightRecorderApiFactory>
 {
     private readonly HttpClient client;
 
-    public TraceFeatureTests(WebApplicationFactory<Program> factory)
+    public TraceFeatureTests(FlightRecorderApiFactory factory)
     {
         client = factory.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((context, configuration) =>
             configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["FlightRecorder:EnableDemo"] = "true" }))).CreateClient();
@@ -57,7 +56,7 @@ public sealed class TraceFeatureTests : IClassFixture<WebApplicationFactory<Prog
     [Fact]
     public void Comparison_handles_duplicate_operations_added_removed_and_empty_traces()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         TraceRun Start() => service.StartRun(new StartRunRequest { Request = "test", EntryPointAgent = "agent", RequestingIdentity = "test" });
         var baseline = Start();
         var candidate = Start();
@@ -132,7 +131,7 @@ public sealed class TraceFeatureTests : IClassFixture<WebApplicationFactory<Prog
     [Fact]
     public void Exports_omit_bodies_and_redact_full_mode_metadata()
     {
-        var service = new InMemoryFlightRecorderService();
+        var service = new FlightRecorderService();
         var run = service.StartRun(new StartRunRequest
         {
             Request = "synthetic private request", EntryPointAgent = "fixture@example.invalid",

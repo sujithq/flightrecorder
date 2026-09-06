@@ -7,10 +7,12 @@ COPY src/FlightRecorder.Web/ src/FlightRecorder.Web/
 RUN npm run build:web
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+RUN mkdir /data && chown "$APP_UID:$APP_UID" /data && chmod 700 /data
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
+ENV FlightRecorder__Storage__DataDirectory=/data
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
