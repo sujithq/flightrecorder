@@ -304,7 +304,11 @@ The Docker API exposes a Streamable HTTP Model Context Protocol (MCP) endpoint a
 - `flightrecorder/analyze_flight_run`
 - `flightrecorder/list_flight_runs`
 
-The repository also provides a `.github/agents/flight-recorder.agent.md` custom agent. The agent performs normal software-engineering work while recording significant milestones, tests, failures, and policy decisions. Recording is explicit: Copilot calls the MCP tools as it works; the Flight Recorder does not intercept Copilot traffic automatically.
+The [shared local recording policy](../.github/copilot-instructions.md#local-flight-recorder-policy) instructs ordinary Copilot, custom agents, and Squad agents whose host loads it to record substantive local tasks in VS Code or Copilot CLI. It does not automatically apply recording to cloud/CI sessions or casual questions, and users can opt out. Instructions do not configure the server, enable tools, or override permissions.
+
+The [flight-recorder custom agent](../.github/agents/flight-recorder.agent.md) remains an optional explicit entry point for recorded work and trace diagnosis. It references the shared policy instead of maintaining a separate recording procedure. Recording is best-effort: Copilot explicitly calls the MCP tools as it works; the Flight Recorder does not intercept Copilot traffic automatically.
+
+The top-level agent starts and owns one run. Before delegation, it records an `AgentSpan` and passes the run ID, the span's event ID as `parentEventId`, ownership, and recording rules to the delegate. Delegates contribute to that run rather than starting or completing their own. Restricted delegates return sanitized evidence for the owner to record with attribution. Only the owner completes the run after all contributors finish, then analyzes it. Inspecting an existing trace does not start or complete a run.
 
 ### Start the shared MCP server
 
@@ -324,19 +328,19 @@ Prerequisites are VS Code 1.99 or later, GitHub Copilot access, and an organizat
 2. Open `.vscode/mcp.json` and click **Start** above the `flightrecorder` server, or run **MCP: List Servers** from the Command Palette and start it there.
 3. Approve the server when VS Code asks whether you trust it.
 4. Open Copilot Chat.
-5. Select the **flight-recorder** custom agent from the agent picker. If it is not listed, reload the VS Code window after pulling the agent file.
+5. Use normal **Agent** mode or a custom agent that loads the repository instructions and has recorder access. Optionally select **flight-recorder** for an explicit recorded workflow. If it is not listed, reload the VS Code window after pulling the agent file.
 6. Enter a normal development request, for example:
 
    > Fix issue #42, run the relevant tests, and explain any operation that is blocked.
 
 7. Approve MCP tool calls when prompted.
-8. The custom agent returns the run ID and trace summary after completing the task. Ask `Show the full Flight Recorder trace for that run` to inspect the recorded evidence.
+8. The run owner returns the run ID and trace summary after completing the task and collecting delegated evidence. If recording is unavailable or incomplete, it reports that limitation instead. Ask `Show the full Flight Recorder trace for that run` to inspect the recorded evidence.
 
-To use the tools without the custom agent, remain in normal **Agent** mode and prompt explicitly:
+No special recording prompt is required when the local agent loads and follows the shared policy. You can still request recording explicitly:
 
-> Use the flightrecorder tools to start a Redacted run, perform this task, record significant tool and test results, complete the run, and analyze it.
+> Record this task with Flight Recorder using the repository's shared local recording policy.
 
-Use the tools button in Copilot Chat to confirm that all six `flightrecorder` tools are enabled.
+Use the tools button in Copilot Chat to confirm that the run owner has the required `flightrecorder` tools enabled. Do not broaden a read-only delegate's permissions just to record evidence.
 
 ### Use with GitHub Copilot CLI
 
@@ -355,7 +359,7 @@ Copilot CLI discovers the repository-level `.mcp.json` when it starts within thi
    /mcp show flightrecorder
    ```
 
-4. Select the repository custom agent:
+4. Continue with the default agent, or optionally select the repository custom agent:
 
    ```text
    /agent
@@ -367,7 +371,7 @@ Copilot CLI discovers the repository-level `.mcp.json` when it starts within thi
 
    > Fix issue #42, run the relevant tests, and explain any operation that is blocked.
 
-6. Approve tool calls when prompted. The agent completes and analyzes the trace before presenting its final response.
+6. Approve tool calls when prompted. Under the shared policy, the run owner completes and analyzes the trace after all contributors finish, or reports recording limitations.
 
 You can also invoke the agent directly from PowerShell:
 
@@ -384,7 +388,7 @@ For prompt mode in a repository that has not already been trusted interactively,
 - **Server not listed in VS Code:** run **Developer: Reload Window**, then **MCP: List Servers**.
 - **Server not listed in Copilot CLI:** start the CLI from the repository root, accept folder trust, and run `/mcp show flightrecorder`.
 - **Tools are unavailable:** confirm your Copilot organization policy allows MCP servers and that the server is enabled in the tools picker.
-- **No trace was created:** select the **flight-recorder** custom agent or explicitly tell normal Agent mode to use the recorder tools.
+- **No trace was created:** confirm that the session is local, the task is substantive, the host loaded the repository instructions, and the agent has permitted recorder tools. Check for a reported recording failure or opt-out. Selecting **flight-recorder** or explicitly requesting the shared policy can clarify intent, but cannot grant missing permissions or guarantee capture.
 
 ## Data persistence
 

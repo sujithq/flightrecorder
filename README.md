@@ -47,7 +47,7 @@ The API stores traces in embedded SQLite, with no separate database server or ho
 
 The Docker service exposes a Streamable HTTP MCP endpoint at `http://localhost:5080/mcp`. Repository configuration targets this endpoint for both GitHub Copilot Chat in VS Code ([.vscode/mcp.json](.vscode/mcp.json)) and GitHub Copilot CLI ([.mcp.json](.mcp.json)). A native `dotnet run` still defaults to port 5205; use `--urls http://localhost:5080` to match the MCP configuration when Docker is stopped.
 
-Start the Docker service once as described below, then select the repository's **flight-recorder** custom agent or ask Copilot to use the `flightrecorder` MCP tools. See [the getting-started guide](docs/getting-started.md#use-with-github-copilot-chat-in-vs-code) for setup and example prompts.
+Start the Docker service once as described below and enable its MCP tools. The [shared local recording policy](.github/copilot-instructions.md#local-flight-recorder-policy) instructs local Copilot agents that load it to record substantive tasks, including in normal Agent mode; selecting the **flight-recorder** custom agent is optional. The top-level agent owns the run and passes recording context to delegates. Recording is best-effort and agent-reported, not automatic interception, and requires a trusted server and permitted tools. See [the getting-started guide](docs/getting-started.md#use-with-github-copilot-chat-in-vs-code) for setup and example prompts.
 
 ## Automatic startup with Docker
 
