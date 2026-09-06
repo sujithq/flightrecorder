@@ -6,7 +6,9 @@ artifacts/
 # JavaScript tooling and generated viewer assets
 node_modules/
 src/FlightRecorder.Api/wwwroot/
-extensions/flight-recorder/media/
+# Keep generated media ignored; ship only the authored setup walkthrough.
+/extensions/flight-recorder/media/*
+!/extensions/flight-recorder/media/setup.md
 *.vsix
 playwright-report/
 .playwright-mcp/

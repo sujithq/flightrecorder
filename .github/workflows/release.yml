@@ -1,0 +1,66 @@
+name: Draft release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Match the release tag to the extension version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const { version } = JSON.parse(await readFile("extensions/flight-recorder/package.json", "utf8"));
+          if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version) || process.env.RELEASE_TAG !== `v${version}`) {
+            throw new Error("The release tag must be v<extensionVersion>.");
+          }
+          NODE
+
+  validate:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  draft:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.validate.outputs.vsix-artifact }}
+          path: release-artifacts
+      - name: Verify and upload the tested package as a draft
+        working-directory: release-artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          package="flight-recorder-${version}.vsix"
+          test -f "$package"
+          test -f "${package}.sha256"
+          sha256sum --check "${package}.sha256"
+          gh release create "$RELEASE_TAG" "$package" "${package}.sha256" \
+            --verify-tag --draft --target "$SOURCE_REVISION" \
+            --title "Agent Flight Recorder $RELEASE_TAG" \
+            --notes "Install the VSIX using Extensions: Install from VSIX, then run Flight Recorder: Set Up Local Recorder. Docker with Compose v2 is required; API and viewer source are bundled. Verify the SHA-256 checksum before installation. Restart and Copilot MCP connection are opt-in." \
+            --generate-notes

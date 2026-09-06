@@ -5,14 +5,47 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    outputs:
+      vsix-artifact:
+        description: The exact validated VSIX and checksum artifact
+        value: ${{ jobs.build-and-test.outputs.vsix-artifact }}
 
 permissions:
   contents: read
 
 jobs:
+  extension-platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Test local setup and compatibility
+        run: >-
+          node --test
+          tests/integrations/extension-bundle.test.mjs
+          tests/integrations/bundle-runtime-contract.test.mjs
+          tests/integrations/local-recorder.test.mjs
+          tests/integrations/setup-ui.test.mjs
+          tests/integrations/mcp-provider.test.mjs
+          tests/integrations/webview.test.mjs
+          tests/integrations/client-defaults.test.mjs
+
   build-and-test:
+    needs: extension-platforms
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
+    outputs:
+      vsix-artifact: flight-recorder-vsix-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Check out repository
@@ -38,7 +71,7 @@ jobs:
         run: npm ci
 
       - name: Restore dependencies
-        run: dotnet restore FlightRecorder.slnx --artifacts-path artifacts/validation
+        run: dotnet restore FlightRecorder.slnx --configfile NuGet.Config --artifacts-path artifacts/validation
 
       - name: Build viewer
         run: npm run build:web
@@ -69,6 +102,18 @@ jobs:
 
       - name: Test container trace persistence
         run: npm run test:persistence
+
+      - name: Test the packaged VSIX in an isolated Docker installation
+        run: npm run test:vsix-setup
+
+      - name: Upload validated release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: flight-recorder-vsix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/*.vsix
+            artifacts/*.vsix.sha256
+          if-no-files-found: error
 
       - name: Upload test results
         if: always()

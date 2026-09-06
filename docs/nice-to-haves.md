@@ -119,9 +119,14 @@ This implementation does not support OTLP/gRPC or collector authentication heade
 npm run package:vscode
 ```
 
-Install `artifacts/flight-recorder-0.1.1.vsix` through **Extensions: Install from
-VSIX**. Start the Docker recorder; the panel defaults to `http://localhost:5080`,
-then run **Flight Recorder: Open Recorder** or **Flight Recorder: Select Run**.
+Install the versioned VSIX from `artifacts`, or download it and its checksum from a
+published [GitHub release](https://github.com/sujithq/flightrecorder/releases),
+through **Extensions: Install from VSIX**. Run **Set Up Local Recorder** to build
+its bundled source with local Docker and optionally **Connect to Copilot**.
+The [extension guide](../extensions/flight-recorder/README.md) covers prerequisites,
+consent, persistent storage, lifecycle commands, and opt-in restart.
+You can also use an existing recorder at `flightRecorder.serverUrl` (default
+`http://localhost:5080`) with **Open Recorder** or **Select Run**.
 The extension embeds the same viewer rather than maintaining a separate UI.
 
 After upgrading an older extension, reset a previously configured

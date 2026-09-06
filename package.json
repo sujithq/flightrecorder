@@ -17,7 +17,8 @@
     "github:summary": "node scripts/github-check.mjs",
     "badger": "node scripts/badger-bridge.mjs",
     "test:badger": "python -m unittest discover -s tests/badger -v",
-    "test:persistence": "node --test tests/containers/*.test.mjs",
+    "test:persistence": "node --test tests/containers/persistence.test.mjs",
+    "test:vsix-setup": "node --test tests/containers/vsix-setup.test.mjs",
     "pretest:e2e": "npm run build:web",
     "test:e2e": "playwright test"
   },

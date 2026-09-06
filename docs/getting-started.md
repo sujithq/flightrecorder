@@ -2,9 +2,37 @@
 
 This guide demonstrates how to start the API and record a complete agent run using PowerShell.
 
+## Install without cloning the repository
+
+Install the VSIX from a published [GitHub release](https://github.com/sujithq/flightrecorder/releases)
+using **Extensions: Install from VSIX**, then invoke **Flight Recorder: Set Up Local Recorder**
+in a trusted local desktop window. The bundled API/web source is built inside Docker;
+host Git, Node.js, and .NET are not required.
+
+Setup checks Docker, Compose v2, a local Docker endpoint, and a running Linux-container engine.
+If something is missing, follow the platform-specific guide and retry. The extension does not
+install Docker, elevate permissions, switch contexts, or configure OS startup.
+Uncached image/package downloads require network access; restores honor the bundled
+[NuGet.Config](../NuGet.Config).
+
+Confirm the port and build before resources are created. Restart is off by default, with an
+optional `unless-stopped` policy when Docker itself starts. The extension preserves trace storage
+and offers explicit lifecycle/status/log commands. It does not start services on activation.
+Existing port occupants can be explicitly reused when verified, or avoided by choosing another port;
+unowned services are never stopped or replaced.
+
+Optionally choose **Connect to Copilot** after setup. Approve the MCP server and tools in VS Code,
+or skip this if you already configured that endpoint manually. Workspace MCP/instruction files
+and Copilot CLI configuration are not changed.
+
+See the [extension guide](../extensions/flight-recorder/README.md) for checksums, installation
+prerequisites, remote-viewer limitations, upgrades, and troubleshooting. The examples below use
+port 5080; substitute the selected local port if you changed it.
+
 ## 1. Start the Docker recorder
 
-With Docker Desktop running, execute this from the repository root:
+If you used VSIX setup, the API is already running; do not also start the checkout's deployment
+on the same port. For repository development, with Docker running, execute this from the repository root:
 
 ```powershell
 docker compose up --build --detach
@@ -312,7 +340,9 @@ The top-level agent starts and owns one run. Before delegation, it records an `A
 
 ### Start the shared MCP server
 
-Both VS Code and Copilot CLI connect to the same Docker service on port 5080. Ensure it is running before opening a recording session:
+Either use **Set Up Local Recorder** in the VSIX, or run the repository Compose deployment below.
+Both clients can connect to the same selected service; repository configurations default to port 5080.
+Ensure it is running before opening a recording session:
 
 ```powershell
 docker compose up --build --detach
@@ -322,7 +352,12 @@ No separate `dotnet run` or open terminal is required. The MCP endpoint is local
 
 ### Use with GitHub Copilot Chat in VS Code
 
-Prerequisites are VS Code 1.99 or later, GitHub Copilot access, and an organization policy that permits MCP servers when applicable.
+The self-contained VSIX requires VS Code 1.101 or later, GitHub Copilot access for agent tools,
+and an organization policy that permits MCP servers when applicable. After VSIX setup, use
+**Connect to Copilot** to register the endpoint without editing files. Approve it using
+**MCP: List Servers** and the tools picker.
+
+For the repository's existing manual MCP configuration instead:
 
 1. Open the repository root in VS Code. VS Code discovers `.vscode/mcp.json`.
 2. Open `.vscode/mcp.json` and click **Start** above the `flightrecorder` server, or run **MCP: List Servers** from the Command Palette and start it there.
@@ -384,6 +419,8 @@ For prompt mode in a repository that has not already been trusted interactively,
 ### Troubleshooting
 
 - **Connection refused:** run `docker compose ps` and verify that `http://localhost:5080/api/runs` responds. Both MCP files must target `http://localhost:5080/mcp`.
+- **VSIX-managed service unavailable:** use **Show Local Recorder Status / Logs**, then explicitly start or retry setup. Repository Compose commands do not manage this separate installation.
+- **Duplicate MCP tools:** keep either the extension-provided connection or your manual configuration for the same endpoint; **Disconnect from Copilot** disables only the extension provider.
 - **Panel or helper still uses an old URL:** update the panel extension, reset or update `flightRecorder.serverUrl`, and check `FLIGHTRECORDER_URL`, `--url` or the action's `server-url` input. Explicit settings override defaults. Reopen the panel after changing its URL.
 - **Server not listed in VS Code:** run **Developer: Reload Window**, then **MCP: List Servers**.
 - **Server not listed in Copilot CLI:** start the CLI from the repository root, accept folder trust, and run `/mcp show flightrecorder`.
@@ -393,3 +430,27 @@ For prompt mode in a repository that has not already been trusted interactively,
 ## Data persistence
 
 SQLite stores traces in the Docker named volume. The latest 10 completed runs and all unfinished runs survive API and container restarts. Retention is configurable; `docker compose down -v` deletes the volume and its history. Full-mode content remains unredacted on disk. See [trace persistence](nice-to-haves.md#trace-persistence) for the full configuration and limits.
+
+## Release and clean-install acceptance
+
+Maintainers push an explicit `v<extensionVersion>` tag only when a release is intended.
+The release workflow reuses CI, checks version consistency, tests the actual packaged VSIX,
+and creates a draft containing that same VSIX and its SHA-256 checksum. Publish the draft
+manually after reviewing its assets. The workflow never overwrites an existing release;
+inspect and resolve an existing draft explicitly before retrying publication.
+
+Before publishing, verify a clean desktop VS Code profile on supported platforms:
+
+1. Install the release candidate VSIX into an isolated user-data/extensions directory, not
+   over a normal developer profile. Use an unrelated trusted workspace with no repository checkout.
+2. Confirm that activation alone creates no container and starts no Docker application.
+3. Exercise missing/stopped Docker guidance, then explicit setup, a port conflict, and normal readiness.
+4. Verify the panel and optional MCP discovery/approvals, plus cancellation and failure reporting.
+5. Create only synthetic test traces; verify stop/start/recreation preserves them and restart is
+   off unless enabled. Do not reboot a shared machine or change OS startup settings for testing.
+6. Verify saved external/native URLs are preserved and remote sessions remain viewer-only.
+
+Automated tests cover mocked Windows/macOS/Linux behavior and extracted-VSIX Docker acceptance.
+The container test uses uniquely owned resources and a temporary installation, not an existing
+developer recorder. Automated Linux container coverage does not itself prove a Docker Desktop
+installation on Windows or macOS; record actual platform acceptance separately.

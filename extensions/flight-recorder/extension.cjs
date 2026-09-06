@@ -1,6 +1,7 @@
 const vscode = require("vscode");
 const { randomBytes } = require("node:crypto");
 const { validateServerUrl, withRun, panelHtml } = require("./webview.cjs");
+const { registerLocalSetup } = require("./setup.cjs");
 
 function activate(context) {
   let panel;
@@ -54,6 +55,7 @@ function activate(context) {
     vscode.commands.registerCommand("flightRecorder.openRun", handle(selectRun)),
     new vscode.Disposable(() => panel?.dispose())
   );
+  registerLocalSetup(vscode, context, { open, getOrigin: () => serverUrl().origin });
 }
 
 module.exports = { activate };

@@ -41,6 +41,26 @@ Windows uses installed Edge; other platforms need `npx playwright install chromi
 
 No hardware or GitHub token is required for automated tests. Native VS Code panel behavior, physical Badger2040 updates, remote port forwarding, and publishing a live GitHub check need separate integration verification.
 
+When changing VSIX setup or packaging, use the existing Node integration tests, then:
+
+```powershell
+npm run package:vscode
+npm run test:vsix-setup
+```
+
+The VSIX acceptance test extracts the real package into temporary storage, builds from its
+bundled context with local Docker, and verifies viewer/API/MCP readiness plus synthetic trace
+persistence. It does not use a developer recorder or the workspace as a fallback build context.
+Only its unique Compose project's containers and volume are removed; build cache is retained.
+ZIP extraction uses PowerShell on Windows and `unzip` on Linux/macOS.
+
+`tests/vscode/run.cjs` is a dependency-free VS Code extension-test-host smoke entry point.
+Run it using `--extensionTestsPath` with an extracted VSIX as `--extensionDevelopmentPath`,
+isolated `--user-data-dir` and `--extensions-dir`, and an unrelated test workspace.
+It verifies real activation and command/provider registration without invoking setup.
+Full setup dialogs and MCP trust approvals still require the clean-profile acceptance
+checklist in the [getting-started guide](docs/getting-started.md#release-and-clean-install-acceptance).
+
 When changing the container configuration, also run:
 
 ```powershell

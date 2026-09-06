@@ -2,7 +2,20 @@
 
 A privacy-conscious flight recorder for multi-agent workflows, with a browser/VS Code trace viewer, agent graph, policy inspection, run comparison, and portable exports.
 
-## Start with Docker
+## Install with VS Code
+
+Download the VSIX and checksum from a published [GitHub release](https://github.com/sujithq/flightrecorder/releases),
+install it with **Extensions: Install from VSIX**, then run **Flight Recorder: Set Up Local Recorder**.
+The extension bundles version-matched source, checks Docker/Compose prerequisites, and builds and runs
+the API, viewer, and MCP endpoint after confirmation. No repository clone or host SDKs are required.
+
+Setup supports local desktop VS Code 1.101+ on Windows, macOS, and Linux. Missing Docker produces
+installation/startup guidance rather than a privileged installer. Builds need network access for uncached
+images and packages and honor [NuGet.Config](NuGet.Config). Restart with Docker defaults to **off**;
+Copilot MCP registration is also opt-in. Traces persist in a dedicated Docker volume.
+See the [extension installation guide](extensions/flight-recorder/README.md) for management and recovery.
+
+## Start with Docker from a checkout
 
 Docker Compose runs the API, MCP endpoint and viewer together. No manually started native API is needed.
 
@@ -19,7 +32,7 @@ Open **http://localhost:5080**. The **Demo run** menu creates synthetic blocked 
 | Agent graph | Recorded parent relationships, selectable connections, delegated objectives and identity changes |
 | Policy visualization | Decision list, scope comparison, filters and evidence inspector |
 | OpenTelemetry export | OTLP/HTTP JSON download and forwarding to a configured collector |
-| VS Code panel | Shared viewer and run picker, packaged as a local VSIX |
+| VS Code extension | Bundled local Docker setup, lifecycle controls, optional MCP connection, shared viewer and run picker |
 | GitHub check summary | Job-summary CLI, reusable action and explicit opt-in Checks API publishing |
 | Trace comparison | Matched events, changed fields and duration/token/cost/policy deltas |
 | PII/secret redaction | Before-storage protection, JSON secret-key handling and configurable patterns |
@@ -47,9 +60,13 @@ The API stores traces in embedded SQLite, with no separate database server or ho
 
 The Docker service exposes a Streamable HTTP MCP endpoint at `http://localhost:5080/mcp`. Repository configuration targets this endpoint for both GitHub Copilot Chat in VS Code ([.vscode/mcp.json](.vscode/mcp.json)) and GitHub Copilot CLI ([.mcp.json](.mcp.json)). A native `dotnet run` still defaults to port 5205; use `--urls http://localhost:5080` to match the MCP configuration when Docker is stopped.
 
-Start the Docker service once as described below and enable its MCP tools. The [shared local recording policy](.github/copilot-instructions.md#local-flight-recorder-policy) instructs local Copilot agents that load it to record substantive tasks, including in normal Agent mode; selecting the **flight-recorder** custom agent is optional. The top-level agent owns the run and passes recording context to delegates. Recording is best-effort and agent-reported, not automatic interception, and requires a trusted server and permitted tools. See [the getting-started guide](docs/getting-started.md#use-with-github-copilot-chat-in-vs-code) for setup and example prompts.
+Use the VSIX's **Connect to Copilot** command after local setup, or start the checkout's Docker service and enable its existing MCP configuration. Avoid registering the same endpoint twice. The [shared local recording policy](.github/copilot-instructions.md#local-flight-recorder-policy) instructs local Copilot agents that load it to record substantive tasks, including in normal Agent mode; selecting the **flight-recorder** custom agent is optional. The top-level agent owns the run and passes recording context to delegates. Installing the VSIX does not copy this repository's instructions into other projects. Recording is best-effort and agent-reported, not automatic interception, and requires a trusted server and permitted tools. See [the getting-started guide](docs/getting-started.md#use-with-github-copilot-chat-in-vs-code) for setup and example prompts.
 
 ## Automatic startup with Docker
+
+These commands operate on the checkout's Compose deployment, not the separately owned VSIX installation.
+For a VSIX installation use **Configure Restart with Docker**, which defaults to off and optionally selects
+`unless-stopped`. Neither approach configures operating-system startup for Docker.
 
 ```powershell
 docker compose up --build --detach
