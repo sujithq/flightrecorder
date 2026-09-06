@@ -2,17 +2,15 @@
 
 A privacy-conscious flight recorder for multi-agent workflows, with a browser/VS Code trace viewer, agent graph, policy inspection, run comparison, and portable exports.
 
-## Run locally
+## Start with Docker
 
-Requires .NET 10 (see `global.json`) and Node.js 24 LTS. NuGet restores use the approved source in [NuGet.Config](NuGet.Config); npm uses its existing registry configuration.
+Docker Compose runs the API, MCP endpoint and viewer together. No manually started native API is needed.
 
 ```powershell
-npm ci
-npm run build:web
-dotnet run --project src\FlightRecorder.Api
+docker compose up --build --detach
 ```
 
-Open **http://localhost:5205**. The **Demo run** menu creates synthetic blocked or approved deployment-repair traces without performing external actions. Create both scenarios to compare their policy outcomes and costs.
+Open **http://localhost:5080**. The **Demo run** menu creates synthetic blocked or approved deployment-repair traces without performing external actions. Create both scenarios to compare their policy outcomes and costs.
 
 ## Nice-to-have features
 
@@ -61,7 +59,7 @@ The [Compose service](compose.yaml) hosts the viewer, API and MCP endpoint at **
 
 On Windows, enable Docker Desktop's **Start Docker Desktop when you sign in** setting. After the first Compose startup, Windows sign-in starts Docker Desktop and Docker starts the recorder. This is sign-in startup, not a guarantee that it runs before anyone logs in. Do not use `docker run --rm` for this service: an automatically removed container cannot restart.
 
-The VS Code panel and optional helper scripts default to port 5205; set `flightRecorder.serverUrl` to `http://localhost:5080` and pass `--url http://localhost:5080` to the helpers when using Docker.
+The VS Code panel, optional helper scripts and GitHub summary action all default to `http://localhost:5080`. Explicit `flightRecorder.serverUrl`, `FLIGHTRECORDER_URL`, `--url` and action `server-url` overrides still take precedence. Reset any stale override to use Docker. After upgrading the extension, reopen its panel; an already open frame may still show its previous URL.
 
 ```powershell
 docker compose ps
@@ -73,6 +71,18 @@ docker compose start
 `stop` deliberately disables automatic restart until `start` or `up` is run again. `docker compose down` removes the service entirely. To rebuild after code changes, rerun `docker compose up --build --detach`.
 
 Run history is stored in `/data/traces.db` on the `recorder-data` named volume. It survives API crashes, Docker restarts, image updates, container recreation, and `docker compose down` followed by `up`. The container runs as its existing non-root user, with an owner-only data directory. Stop any older recorder container bound to port 5080 before the first Compose startup.
+
+## Native development
+
+Native execution is an explicit alternative for debugging the API. It requires .NET 10 (see `global.json`) and Node.js 24 LTS. NuGet restores use the approved source in [NuGet.Config](NuGet.Config); npm uses its existing registry configuration.
+
+```powershell
+npm ci
+npm run build:web
+dotnet run --project src\FlightRecorder.Api --launch-profile http
+```
+
+This development profile listens on `http://localhost:5205`. Use that URL explicitly in the panel or helpers when inspecting native runs. Repository MCP clients still target Docker on `5080`; to test the native API through those unchanged configurations, stop the Docker recorder first and add `--urls http://localhost:5080` to the native command. Docker's internal port `8080` and the isolated browser-test port `5081` are separate and should not be changed.
 
 ## Trace retention
 
@@ -106,7 +116,7 @@ npm run test:e2e
 npm run package:vscode
 ```
 
-Python 3.11+ is needed only for badge tests. Browser tests use installed Edge on Windows; elsewhere run `npx playwright install chromium` first. Playwright starts the built API on port 5081 with a temporary database and does not reuse the Docker service on 5080. Setting `FLIGHTRECORDER_URL` explicitly targets that server and may change its trace history. The VSIX is written to `artifacts/flight-recorder-0.1.0.vsix`.
+Python 3.11+ is needed only for badge tests. Browser tests use installed Edge on Windows; elsewhere run `npx playwright install chromium` first. Playwright starts the built API on port 5081 with a temporary database and does not reuse the Docker service on 5080. Setting `FLIGHTRECORDER_URL` explicitly targets that server and may change its trace history. The VSIX is written to `artifacts/flight-recorder-0.1.1.vsix`; install it with **Extensions: Install from VSIX** to update an older panel extension.
 
 After `docker compose build recorder`, run `npm run test:persistence` to check crash recovery, recreation and configurable retention using a disposable Docker project, volume and random loopback port. It does not modify the running recorder or its volume.
 

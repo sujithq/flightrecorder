@@ -2,7 +2,7 @@
   "name": "flight-recorder",
   "displayName": "Agent Flight Recorder",
   "description": "Inspect recorded agent traces, graph relationships, permissions and run comparisons in VS Code.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "sujithq",
   "license": "MIT",
   "engines": { "vscode": "^1.90.0" },
@@ -24,7 +24,7 @@
       "properties": {
         "flightRecorder.serverUrl": {
           "type": "string",
-          "default": "http://localhost:5205",
+          "default": "http://localhost:5080",
           "scope": "machine",
           "restricted": true,
           "description": "Local recorder origin. Only localhost, 127.0.0.1 and ::1 are accepted. Remote workspaces use VS Code port forwarding."

@@ -2,14 +2,14 @@
 
 ## Viewer, graph and policy inspection
 
-Run `npm ci`, `npm run build:web`, then `dotnet run --project src/FlightRecorder.Api`.
-Open <http://localhost:5205>. Choose a run from history and switch between
+Run `docker compose up --build --detach` and open <http://localhost:5080>.
+Choose a run from history and switch between
 **Timeline**, **Agent graph**, **Policies** and **Compare**. The timeline's replay
 controls step through stored events without rerunning tools.
 
 The **Demo run** menu creates either a blocked or approved synthetic deployment
-repair. Demo ingestion is enabled in Development; outside Development, explicitly
-set `FlightRecorder__EnableDemo=true`. No external deployment, repository write or
+repair. Compose enables demo ingestion; it is also enabled in native Development.
+Other deployments must explicitly set `FlightRecorder__EnableDemo=true`. No external deployment, repository write or
 permission grant occurs in either demo.
 
 Graph edges come from `parentEventId`, which must reference an existing event in
@@ -92,13 +92,20 @@ events, valid trace/span IDs, timestamps, parent links, status and usage attribu
 Standard `gen_ai.*` attributes are used where applicable; experimental attributes
 use the `flightrecorder.*` namespace.
 
-To forward a trace, configure the collector's complete OTLP/HTTP JSON endpoint
-before starting the API:
+To forward a trace from Docker, configure `FlightRecorder__OtlpEndpoint` in the
+recorder service's environment and recreate that service. Use a collector address
+reachable from inside the container, not the host's loopback address.
+
+For an explicitly chosen native development instance on port 5205, set the
+collector's complete OTLP/HTTP JSON endpoint before starting that API:
 
 ```powershell
 $env:FlightRecorder__OtlpEndpoint = "http://localhost:4318/v1/traces"
 dotnet run --project src/FlightRecorder.Api
 ```
+
+Use the native viewer at `http://localhost:5205` for this native example; its
+configuration and database are separate from Docker's viewer on 5080.
 
 Select **Send to collector**, or POST to the same export URL. The endpoint is
 server-configured, not supplied by callers. HTTPS is required except for loopback
@@ -112,10 +119,14 @@ This implementation does not support OTLP/gRPC or collector authentication heade
 npm run package:vscode
 ```
 
-Install `artifacts/flight-recorder-0.1.0.vsix` through **Extensions: Install from
-VSIX**. Start the API, set `flightRecorder.serverUrl` if it is not on port 5205,
+Install `artifacts/flight-recorder-0.1.1.vsix` through **Extensions: Install from
+VSIX**. Start the Docker recorder; the panel defaults to `http://localhost:5080`,
 then run **Flight Recorder: Open Recorder** or **Flight Recorder: Select Run**.
 The extension embeds the same viewer rather than maintaining a separate UI.
+
+After upgrading an older extension, reset a previously configured
+`flightRecorder.serverUrl` or set it to `http://localhost:5080`. Explicit settings
+are preserved and override the new default. Reopen the panel to load the new URL.
 
 Only localhost, 127.0.0.1 and ::1 origins are accepted, and workspace trust is
 required. Remote workspaces use VS Code port forwarding through `asExternalUri`;
@@ -128,8 +139,11 @@ The recorder must remain running. Reopen the panel after restarting it.
 Generate Markdown from a recorded run without contacting GitHub:
 
 ```powershell
-npm run github:summary -- --run-id <run-uuid> --url http://localhost:5205
+npm run github:summary -- --run-id <run-uuid>
 ```
+
+The CLI defaults to Docker at `http://localhost:5080`. `FLIGHTRECORDER_URL` can
+override that origin; an explicit `--url` overrides the environment setting.
 
 Set `GITHUB_STEP_SUMMARY` or pass `--summary-file <path>` to append the Markdown to
 a file. The summary includes metrics and bounded event evidence. Configure
@@ -158,7 +172,7 @@ can write the job summary without a token:
 - uses: ./.github/actions/flight-recorder
   with:
     run-id: ${{ steps.agent.outputs.run_id }}
-    server-url: http://localhost:5205
+    server-url: http://localhost:5080
 ```
 
 To also publish a check, grant the job `checks: write` and pass `publish: 'true'`

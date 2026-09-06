@@ -6,7 +6,7 @@ inputs:
     required: true
   server-url:
     description: Reachable recorder origin (HTTPS or loopback HTTP).
-    default: http://localhost:5205
+    default: http://localhost:5080
   publish:
     description: Set to true to create a GitHub check in addition to the job summary.
     default: 'false'

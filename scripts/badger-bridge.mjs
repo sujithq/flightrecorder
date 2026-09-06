@@ -4,7 +4,7 @@ import { BadgeRelay } from "./lib/badge-protocol.mjs";
 
 async function main() {
   const { values } = parseArgs({ options: {
-    url: { type: "string", default: process.env.FLIGHTRECORDER_URL ?? "http://localhost:5205" },
+    url: { type: "string", default: process.env.FLIGHTRECORDER_URL ?? "http://localhost:5080" },
     "run-id": { type: "string" }, port: { type: "string" },
     interval: { type: "string", default: "30" }, watch: { type: "boolean", default: false },
     stdout: { type: "boolean", default: false }, list: { type: "boolean", default: false },

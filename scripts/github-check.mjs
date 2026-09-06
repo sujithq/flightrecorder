@@ -37,7 +37,7 @@ export async function publishCheck(check, { repository, sha, token }, fetchImpl 
 
 async function main() {
   const { values } = parseArgs({ options: {
-    url: { type: "string", default: process.env.FLIGHTRECORDER_URL ?? "http://localhost:5205" },
+    url: { type: "string", default: process.env.FLIGHTRECORDER_URL ?? "http://localhost:5080" },
     "run-id": { type: "string" },
     repo: { type: "string", default: process.env.GITHUB_REPOSITORY },
     sha: { type: "string", default: process.env.GITHUB_SHA },

@@ -33,16 +33,18 @@ the image remains on e-ink after power is removed, but it is no longer live.
 
 ## Host bridge
 
-Start the recorder API and create or record a run. From the repository root:
+Start the Docker recorder and create or record a run. From the repository root:
 
 ```powershell
+docker compose up --build --detach
 npm ci
 npm run badger -- --list
 npm run badger -- --port COM5 --watch
 ```
 
-The default server is `http://localhost:5205`. Use `--url` for another HTTPS or
-loopback HTTP origin. `--run-id <uuid>` pins a specific run; otherwise the latest
+The default server is `http://localhost:5080`. Set `FLIGHTRECORDER_URL` or use
+`--url` for another HTTPS or loopback HTTP origin; `--url` takes precedence.
+Remove a stale override to use Docker's default. `--run-id <uuid>` pins a specific run; otherwise the latest
 run is used. Omit `--watch` to send one update. Linux/macOS ports typically look
 like `/dev/ttyACM0` or `/dev/cu.usbmodem...`; select the actual port shown by
 `--list`. Serial access permissions are managed by your operating system.
@@ -55,7 +57,7 @@ bridge without clearing the display.
 Without hardware, preview the exact wire frame:
 
 ```powershell
-npm run badger -- --stdout --url http://localhost:5205
+npm run badger -- --stdout
 npm run test:badger
 ```
 

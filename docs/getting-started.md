@@ -2,28 +2,26 @@
 
 This guide demonstrates how to start the API and record a complete agent run using PowerShell.
 
-## 1. Start the API
+## 1. Start the Docker recorder
 
-From the repository root, run:
+With Docker Desktop running, execute this from the repository root:
 
 ```powershell
-npm ci
-npm run build:web
-dotnet run --project src\FlightRecorder.Api --launch-profile http
+docker compose up --build --detach
 ```
 
-The API and viewer listen at `http://localhost:5205`. Keep this terminal open while using them. The viewer's **Demo run** menu creates synthetic blocked and approved runs for graph, policy and comparison exploration. See [the optional feature guide](nice-to-haves.md) for OTLP, GitHub, VS Code and Badger2040 setup.
+The API and viewer listen at `http://localhost:5080`, and MCP is available at `http://localhost:5080/mcp`. The container runs independently of this terminal and restarts when Docker starts unless explicitly stopped. Do not start a separate native API for the examples in this guide. The viewer's **Demo run** menu creates synthetic blocked and approved runs for graph, policy and comparison exploration. See [the optional feature guide](nice-to-haves.md) for OTLP, GitHub, VS Code and Badger2040 setup.
 
-Native runs now persist to SQLite in the current user's local application data directory (`%LOCALAPPDATA%\FlightRecorder` on Windows). The latest 10 completed runs and all unfinished runs survive restarts. For automatic Docker startup with a persistent volume, use `docker compose up --build --detach` and port 5080 instead of 5205 in the examples below. Repository MCP configurations already target Docker on 5080. See [retention configuration](nice-to-haves.md#trace-persistence) before changing the limit or deleting a volume.
+The Docker volume preserves the latest 10 completed runs and all unfinished runs across restarts. Repository MCP configurations, the VS Code panel and helper scripts all default to Docker on 5080. See [retention configuration](nice-to-haves.md#trace-persistence) before changing the limit or deleting a volume. [Native development](../README.md#native-development) is a separate, explicit alternative with its own database.
 
 ## 2. Start a recorded run
 
-Open another PowerShell terminal and run:
+From PowerShell, run:
 
 ```powershell
 $run = Invoke-RestMethod `
   -Method Post `
-  -Uri http://localhost:5205/api/runs `
+  -Uri http://localhost:5080/api/runs `
   -ContentType application/json `
   -Body (@{
     request = "Investigate failed deployment"
@@ -49,7 +47,7 @@ Recording modes:
 ```powershell
 $agentEvent = Invoke-RestMethod `
   -Method Post `
-  -Uri "http://localhost:5205/api/runs/$runId/events" `
+  -Uri "http://localhost:5080/api/runs/$runId/events" `
   -ContentType application/json `
   -Body (@{
     type = 1
@@ -76,7 +74,7 @@ Event types:
 ```powershell
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://localhost:5205/api/runs/$runId/events" `
+  -Uri "http://localhost:5080/api/runs/$runId/events" `
   -ContentType application/json `
   -Body (@{
     type = 2
@@ -97,7 +95,7 @@ Invoke-RestMethod `
 ```powershell
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://localhost:5205/api/runs/$runId/events" `
+  -Uri "http://localhost:5080/api/runs/$runId/events" `
   -ContentType application/json `
   -Body (@{
     type = 4
@@ -126,22 +124,22 @@ Event statuses:
 ```powershell
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://localhost:5205/api/runs/$runId/complete"
+  -Uri "http://localhost:5080/api/runs/$runId/complete"
 ```
 
 ## 7. View the complete trace
 
 ```powershell
-Invoke-RestMethod "http://localhost:5205/api/runs/$runId" |
+Invoke-RestMethod "http://localhost:5080/api/runs/$runId" |
   ConvertTo-Json -Depth 10
 ```
 
-The trace includes all events and aggregate duration, token, cost, and status information. Open `http://localhost:5205/?run=<runId>` to inspect it visually. An optional `parentEventId` must refer to an event already recorded in the same run; this preserves actual hierarchy instead of guessing delegation from agent names.
+The trace includes all events and aggregate duration, token, cost, and status information. Open `http://localhost:5080/?run=<runId>` to inspect it visually. An optional `parentEventId` must refer to an event already recorded in the same run; this preserves actual hierarchy instead of guessing delegation from agent names.
 
 ## 8. View the root-cause analysis
 
 ```powershell
-Invoke-RestMethod "http://localhost:5205/api/runs/$runId/analysis" |
+Invoke-RestMethod "http://localhost:5080/api/runs/$runId/analysis" |
   ConvertTo-Json -Depth 10
 ```
 
@@ -150,7 +148,7 @@ The analysis identifies the primary failure or policy intervention and links the
 ## 9. List recorded runs
 
 ```powershell
-Invoke-RestMethod http://localhost:5205/api/runs |
+Invoke-RestMethod http://localhost:5080/api/runs |
   ConvertTo-Json -Depth 10
 ```
 
@@ -158,10 +156,10 @@ Invoke-RestMethod http://localhost:5205/api/runs |
 
 In this scenario, a coding agent receives a request, inspects the repository, changes the code, runs the tests successfully, and then attempts to create a pull request. The pull request operation is blocked because the agent only has read access.
 
-Start the API in the first terminal, then run the following complete script in a second PowerShell terminal:
+Start the Docker recorder as above, then run the following complete script in PowerShell:
 
 ```powershell
-$baseUrl = "http://localhost:5205/api"
+$baseUrl = "http://localhost:5080/api"
 
 # Start the run using redacted recording so common secret values are removed.
 $run = Invoke-RestMethod `
@@ -297,7 +295,7 @@ This makes it possible to distinguish a code failure from an authorization or go
 
 ## GitHub Copilot integration
 
-The API exposes a Streamable HTTP Model Context Protocol (MCP) endpoint at `http://localhost:5205/mcp`. Copilot can use the endpoint as six tools:
+The Docker API exposes a Streamable HTTP Model Context Protocol (MCP) endpoint at `http://localhost:5080/mcp`. Copilot can use the endpoint as six tools:
 
 - `flightrecorder/start_flight_run`
 - `flightrecorder/record_flight_event`
@@ -310,13 +308,13 @@ The repository also provides a `.github/agents/flight-recorder.agent.md` custom 
 
 ### Start the shared MCP server
 
-Both VS Code and Copilot CLI connect to the same local process. Start it before opening a recording session:
+Both VS Code and Copilot CLI connect to the same Docker service on port 5080. Ensure it is running before opening a recording session:
 
 ```powershell
-dotnet run --project src\FlightRecorder.Api --launch-profile http
+docker compose up --build --detach
 ```
 
-Keep this terminal running. The MCP endpoint is local and unauthenticated, so expose it only on a trusted development machine.
+No separate `dotnet run` or open terminal is required. The MCP endpoint is local and unauthenticated, so keep the Compose loopback binding. After changing an MCP configuration, restart that client connection so it loads the new URL.
 
 ### Use with GitHub Copilot Chat in VS Code
 
@@ -381,7 +379,8 @@ For prompt mode in a repository that has not already been trusted interactively,
 
 ### Troubleshooting
 
-- **Connection refused:** verify that the API terminal says it is listening on `http://localhost:5205`.
+- **Connection refused:** run `docker compose ps` and verify that `http://localhost:5080/api/runs` responds. Both MCP files must target `http://localhost:5080/mcp`.
+- **Panel or helper still uses an old URL:** update the panel extension, reset or update `flightRecorder.serverUrl`, and check `FLIGHTRECORDER_URL`, `--url` or the action's `server-url` input. Explicit settings override defaults. Reopen the panel after changing its URL.
 - **Server not listed in VS Code:** run **Developer: Reload Window**, then **MCP: List Servers**.
 - **Server not listed in Copilot CLI:** start the CLI from the repository root, accept folder trust, and run `/mcp show flightrecorder`.
 - **Tools are unavailable:** confirm your Copilot organization policy allows MCP servers and that the server is enabled in the tools picker.
@@ -389,4 +388,4 @@ For prompt mode in a repository that has not already been trusted interactively,
 
 ## Data persistence
 
-The current implementation stores data in memory. All recorded runs disappear when the API process stops or restarts.
+SQLite stores traces in the Docker named volume. The latest 10 completed runs and all unfinished runs survive API and container restarts. Retention is configurable; `docker compose down -v` deletes the volume and its history. Full-mode content remains unredacted on disk. See [trace persistence](nice-to-haves.md#trace-persistence) for the full configuration and limits.

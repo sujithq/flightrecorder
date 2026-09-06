@@ -7,7 +7,7 @@ function activate(context) {
 
   function serverUrl() {
     if (!vscode.workspace.isTrusted) throw new Error("Trust this workspace before opening the recorder.");
-    return validateServerUrl(vscode.workspace.getConfiguration("flightRecorder").get("serverUrl", "http://localhost:5205"));
+    return validateServerUrl(vscode.workspace.getConfiguration("flightRecorder").get("serverUrl", "http://localhost:5080"));
   }
 
   async function open(runId) {
