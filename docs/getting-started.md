@@ -447,6 +447,9 @@ SQLite stores traces in the Docker named volume. The latest 10 completed runs an
 ## Release and clean-install acceptance
 
 Maintainers push an explicit `v<extensionVersion>` tag only when a release is intended.
+For the automated local flow, [ask Copilot for a conventional commit message to
+prepare the version, then run the release-tag task after committing and pushing
+main](../CONTRIBUTING.md#conventional-commit-and-release-flow).
 The release workflow reuses CI, checks version consistency, tests the actual packaged VSIX,
 and creates a draft containing that same VSIX and its SHA-256 checksum. Publish the draft
 manually after reviewing its assets. The workflow never overwrites an existing release;

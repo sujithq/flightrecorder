@@ -67,6 +67,16 @@ The Scribe will merge it into the shared decisions file.
 
 - Before NuGet package, restore, build, or test work, consult [NuGet.Config](../NuGet.Config) and honor its approved package source. Do not bypass it with alternate feeds or ad hoc `--source` overrides.
 
+## Conventional Commit and Release Workflow
+
+- When the user asks for a conventional commit message **for current local changes**, prepare the future extension version before returning the message, unless they explicitly request message-only/no version changes. This does not apply to questions about old commits or general explanations of the release process.
+- Inspect the intended changes and choose a conventional type. Run `npm run release:prepare -- --type <type>`; add `--breaking` for breaking changes (`!` or a `BREAKING CHANGE` footer). Repository policy: `feat` bumps minor, breaking changes bump major (including before 1.0), and other supported types bump patch so documentation/walkthrough changes can also ship.
+- Use the command's returned version and tag in the response. It derives the target from the highest reachable numeric `vX.Y.Z` tag (or committed manifest if no such tag exists), preserves an already-prepared higher version, and does not compound bumps on repeated requests. Do not manually increment it again. Keep local release tags up to date; preparation does not fetch from remotes.
+- Only [the extension manifest](../extensions/flight-recorder/package.json) is versioned by this flow. Leave the private root package version unchanged. Tell the user to include/re-stage the changed manifest in their commit; do not stage, commit, tag, push, or publish simply because a message was requested.
+- If preparing the version fails or edits are not permitted, report that explicitly; do not claim a version was updated or bypass permissions. Explain any staged/uncommitted changes without discarding them.
+- After the user commits and pushes their changes to `origin/main`, they explicitly run **Tasks: Run Task > Flight Recorder: Create and Push Release Tag**, or `npm run release:tag`. The task requires clean `main`, checks the actual remote, creates an annotated tag from the committed extension version, and pushes only that tag. Never run it automatically while generating a commit message.
+- A pushed tag starts validation and draft-release creation; publishing the GitHub release remains manual. These are local Copilot Chat instructions, not a Git hook or a guarantee that every editor's commit-message generator loads them. See [the release guide](../CONTRIBUTING.md#conventional-commit-and-release-flow).
+
 ## Local Flight Recorder Policy
 
 ### Scope, privacy, and availability

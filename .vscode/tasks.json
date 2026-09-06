@@ -1,0 +1,50 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Flight Recorder: Browser Tests",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"test:e2e"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Flight Recorder: Prepare Release Version",
+			"type": "process",
+			"command": "node",
+			"args": ["${workspaceFolder}/scripts/release.mjs", "prepare", "--type", "${input:releaseCommitType}"],
+			"options": { "cwd": "${workspaceFolder}" },
+			"problemMatcher": []
+		},
+		{
+			"label": "Flight Recorder: Check Release Tag (Dry Run)",
+			"type": "process",
+			"command": "node",
+			"args": ["${workspaceFolder}/scripts/release.mjs", "tag", "--dry-run"],
+			"options": { "cwd": "${workspaceFolder}" },
+			"problemMatcher": []
+		},
+		{
+			"label": "Flight Recorder: Create and Push Release Tag",
+			"type": "process",
+			"command": "node",
+			"args": ["${workspaceFolder}/scripts/release.mjs", "tag"],
+			"options": { "cwd": "${workspaceFolder}" },
+			"problemMatcher": []
+		}
+	],
+	"inputs": [
+		{
+			"id": "releaseCommitType",
+			"type": "pickString",
+			"description": "Conventional commit type: feat = minor; others = patch. For breaking changes use release:prepare -- --type feat --breaking.",
+			"options": ["feat", "fix", "docs", "chore", "refactor", "perf", "build", "ci", "test", "style", "revert"],
+			"default": "fix"
+		}
+	]
+}

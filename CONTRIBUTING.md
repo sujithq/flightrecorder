@@ -82,6 +82,88 @@ Generated `bin`, `obj`, web assets, VSIX, test-result, coverage, database/journa
 - Never add credentials, tokens, personal data, or captured sensitive payloads to tests or documentation.
 - Update documentation when changing the API, MCP tools, configuration, or setup process.
 
+## Conventional commit and release flow
+
+There are two deliberate actions: **prepare the version before committing**, then
+**push a release tag after the commit is on main**. The [repository Copilot instructions](.github/copilot-instructions.md#conventional-commit-and-release-workflow)
+tell local Copilot Chat agents to run preparation when you ask for a conventional
+commit message for your current changes. No Git hook is installed, and the Source
+Control panel's built-in message-generation button is not guaranteed to load that
+workflow. You can use the commands/tasks directly for deterministic behavior.
+
+### 1. Ask for the commit message
+
+For example: "Give me a conventional commit message for these changes." Copilot
+chooses the type and runs:
+
+```powershell
+npm run release:prepare -- --type feat
+```
+
+| Change | Version increment |
+| --- | --- |
+| `feat` | Minor: `0.2.1` -> `0.3.0` |
+| Breaking change (`!` / `BREAKING CHANGE`) | Major: `0.2.1` -> `1.0.0` |
+| `fix`, `docs`, `chore`, `perf`, `refactor`, `build`, `ci`, `test`, `style`, `revert` | Patch: `0.2.1` -> `0.2.2` |
+
+For breaking changes, add `--breaking`. Use `--dry-run` to preview without editing:
+
+```powershell
+npm run release:prepare -- --type feat --breaking --dry-run
+```
+
+Preparation updates only the version property in [the extension manifest](extensions/flight-recorder/package.json).
+It preserves formatting and all other changes, does not update the private root
+package version, and never stages, commits, tags, pushes, installs dependencies, or
+contacts a remote. Include **or re-stage** the manifest when you commit.
+
+The target comes from the highest reachable numeric `vX.Y.Z` tag, not from the last
+preparation. Asking twice keeps the same pending version. Asking for a patch after
+a minor bump does not downgrade it; asking for a minor after a patch upgrades the
+pending target. A manually chosen higher version is preserved. Without version
+tags, the committed extension manifest is the baseline. Full Git history is required;
+keep release tags current (for example, fetch tags before starting a release cycle).
+This initial automation accepts numeric `X.Y.Z` versions; GitHub's prerelease
+checkbox is a separate publication setting.
+
+To select a type without Copilot, use **Tasks: Run Task > Flight Recorder: Prepare
+Release Version**. If you want only wording without changes, tell Copilot
+"message only; do not change the version."
+
+### 2. Commit, push main, then run the release task
+
+Review and commit the intended files, including the prepared version, and push or
+merge that commit to `origin/main`. Switch to the synchronized local `main` branch.
+Then run **Tasks: Run Task > Flight Recorder: Create and Push Release Tag**, or:
+
+```powershell
+npm run release:tag
+```
+
+The task refuses dirty worktrees (including untracked files), detached HEAD, feature
+branches, a commit not at the remote's `main` tip, multiple push destinations, or
+conflicting existing tags. It creates an annotated `v<committed extensionVersion>`
+tag and pushes **only that tag**. It never pushes a branch, force-pushes, moves an
+existing tag, or commits files. A retry of the same successfully pushed tag is a
+no-op. If a push fails, the local tag is retained for a safe retry.
+
+For a read-only check before publishing a tag, use **Flight Recorder: Check Release
+Tag (Dry Run)** or `npm run release:tag -- --dry-run`. This check queries the remote,
+but creates or pushes nothing.
+
+Watch the **Draft release** GitHub Actions workflow after the tag push. A successful
+push is not a completed release: validation must pass and you must review and publish
+the resulting draft manually. Do not reuse a released version.
+
+The tasks belong to this source repository; they are not end-user extension commands.
+Test the scripts with the existing Node runner:
+
+```powershell
+node --test tests\integrations\release.test.mjs
+```
+
+Tests use disposable local Git repositories/remotes, not the project's GitHub remote.
+
 ## Pull requests
 
 Before opening a pull request:

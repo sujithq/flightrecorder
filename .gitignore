@@ -49,6 +49,7 @@ packages/
 # Visual Studio Code
 .vscode/*
 !.vscode/mcp.json
+!.vscode/tasks.json
 
 # JetBrains IDEs
 .idea/

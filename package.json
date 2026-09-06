@@ -14,6 +14,8 @@
     "test:web": "node --test tests/web/*.test.mjs",
     "test:integrations": "node --test tests/integrations/*.test.mjs",
     "package:vscode": "node scripts/package-extension.mjs",
+    "release:prepare": "node scripts/release.mjs prepare",
+    "release:tag": "node scripts/release.mjs tag",
     "github:summary": "node scripts/github-check.mjs",
     "badger": "node scripts/badger-bridge.mjs",
     "test:badger": "python -m unittest discover -s tests/badger -v",
