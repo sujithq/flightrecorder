@@ -48,7 +48,8 @@ public sealed record FlightEvent(
     decimal EstimatedCost = 0,
     string? Input = null,
     string? Output = null,
-    IReadOnlyDictionary<string, string>? Attributes = null)
+    IReadOnlyDictionary<string, string>? Attributes = null,
+    Guid? ParentEventId = null)
 {
     public TimeSpan Duration => (EndedAt ?? StartedAt) - StartedAt;
 }

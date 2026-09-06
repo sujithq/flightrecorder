@@ -6,6 +6,8 @@ Thank you for contributing to Agent Flight Recorder.
 
 - Git
 - .NET SDK 10.0.303, as pinned by `global.json`
+- Node.js 24 LTS and npm
+- Python 3.11+ for the hardware-independent Badger2040 tests
 - Docker, only when validating container changes
 
 ## Set up the repository
@@ -13,17 +15,29 @@ Thank you for contributing to Agent Flight Recorder.
 ```powershell
 git clone https://github.com/sujithq/flightrecorder.git
 cd flightrecorder
-dotnet restore FlightRecorder.slnx
+npm ci
+npm run build:web
+dotnet restore FlightRecorder.slnx --artifacts-path artifacts/validation
 ```
+
+NuGet uses the approved feed in [NuGet.Config](NuGet.Config). Do not replace it with nuget.org or configure that NuGet endpoint as an npm registry.
 
 Create a focused branch from `main` before making changes.
 
 ## Build and test
 
 ```powershell
-dotnet build FlightRecorder.slnx -c Release --no-restore
-dotnet test FlightRecorder.slnx -c Release --no-build
+dotnet build FlightRecorder.slnx -c Release --no-restore --artifacts-path artifacts/validation
+dotnet test FlightRecorder.slnx -c Release --no-build --artifacts-path artifacts/validation
+npm test
+npm run test:badger
+npm run test:e2e
+npm run package:vscode
 ```
+
+Browser tests start and stop the built API on port 5080. Windows uses installed Edge; other platforms need `npx playwright install chromium`. Set `PLAYWRIGHT_CHANNEL` to override the browser channel or `FLIGHTRECORDER_URL` to target a running service. The editor may not discover Node/Python or newly added .NET tests; the commands above are the authoritative checks.
+
+No hardware or GitHub token is required for automated tests. Native VS Code panel behavior, physical Badger2040 updates, remote port forwarding, and publishing a live GitHub check need separate integration verification.
 
 When changing the container configuration, also run:
 
@@ -31,7 +45,7 @@ When changing the container configuration, also run:
 docker build --tag flightrecorder:dev .
 ```
 
-Generated `bin`, `obj`, test-result, coverage, and local secret files must not be committed.
+Generated `bin`, `obj`, web assets, VSIX, test-result, coverage, and local secret files must not be committed. Some legacy build outputs are tracked; do not mix unrelated generated changes into a feature commit.
 
 ## Development guidelines
 

@@ -1,0 +1,36 @@
+{
+  "name": "flight-recorder",
+  "displayName": "Agent Flight Recorder",
+  "description": "Inspect recorded agent traces, graph relationships, permissions and run comparisons in VS Code.",
+  "version": "0.1.0",
+  "publisher": "sujithq",
+  "license": "MIT",
+  "engines": { "vscode": "^1.90.0" },
+  "categories": ["Visualization", "Other"],
+  "repository": { "type": "git", "url": "https://github.com/sujithq/flightrecorder.git", "directory": "extensions/flight-recorder" },
+  "main": "./extension.cjs",
+  "extensionKind": ["workspace"],
+  "capabilities": {
+    "untrustedWorkspaces": { "supported": false, "description": "The recorder connects to a service running in the workspace environment." },
+    "virtualWorkspaces": { "supported": false }
+  },
+  "contributes": {
+    "commands": [
+      { "command": "flightRecorder.open", "title": "Open Recorder", "category": "Flight Recorder", "icon": "$(pulse)" },
+      { "command": "flightRecorder.openRun", "title": "Select Run", "category": "Flight Recorder" }
+    ],
+    "configuration": {
+      "title": "Flight Recorder",
+      "properties": {
+        "flightRecorder.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:5205",
+          "scope": "machine",
+          "restricted": true,
+          "description": "Local recorder origin. Only localhost, 127.0.0.1 and ::1 are accepted. Remote workspaces use VS Code port forwarding."
+        }
+      }
+    }
+  },
+  "files": ["extension.cjs", "webview.cjs", "README.md", "LICENSE"]
+}

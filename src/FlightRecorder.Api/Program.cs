@@ -4,7 +4,11 @@ using ModelContextProtocol.Server;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
+builder.Services.AddSingleton(new TraceRedactor(builder.Configuration.GetSection("FlightRecorder:RedactionPatterns").Get<string[]>()));
 builder.Services.AddSingleton<IFlightRecorderService, InMemoryFlightRecorderService>();
+builder.Services.AddSingleton<TraceExportService>();
+builder.Services.AddHttpClient<OtlpForwarder>(client => client.Timeout = TimeSpan.FromSeconds(10))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services
     .AddMcpServer(options =>
     {
@@ -20,6 +24,8 @@ builder.Services
     .WithTools<FlightRecorderMcpTools>();
 
 var app = builder.Build();
+app.UseDefaultFiles();
+app.UseStaticFiles();
 app.MapControllers();
 app.MapMcp("/mcp");
 app.Run();

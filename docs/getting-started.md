@@ -7,10 +7,12 @@ This guide demonstrates how to start the API and record a complete agent run usi
 From the repository root, run:
 
 ```powershell
+npm ci
+npm run build:web
 dotnet run --project src\FlightRecorder.Api --launch-profile http
 ```
 
-The API listens at `http://localhost:5205`. Keep this terminal open while using the API.
+The API and viewer listen at `http://localhost:5205`. Keep this terminal open while using them. The viewer's **Demo run** menu creates synthetic blocked and approved runs for graph, policy and comparison exploration. See [the optional feature guide](nice-to-haves.md) for OTLP, GitHub, VS Code and Badger2040 setup.
 
 ## 2. Start a recorded run
 
@@ -25,7 +27,7 @@ $run = Invoke-RestMethod `
     request = "Investigate failed deployment"
     entryPointAgent = "orchestrator"
     requestingIdentity = "developer"
-    recordingMode = 2
+    recordingMode = 1
   } | ConvertTo-Json)
 
 $runId = $run.id
@@ -36,14 +38,14 @@ Recording modes:
 
 | Value | Mode | Behavior |
 |---:|---|---|
-| `0` | MetadataOnly | Does not retain event input or output |
-| `1` | Redacted | Retains input and output after known secrets are redacted |
-| `2` | Full | Retains full event input and output |
+| `0` | MetadataOnly | Omits request content, objectives, input/output and non-allowlisted attributes; redacts retained metadata |
+| `1` | Redacted | Redacts known PII/secret patterns across requests, event content and metadata before storage |
+| `2` | Full | Retains unredacted content locally; use only with explicitly approved synthetic or non-sensitive data |
 
 ## 3. Record an agent event
 
 ```powershell
-Invoke-RestMethod `
+$agentEvent = Invoke-RestMethod `
   -Method Post `
   -Uri "http://localhost:5205/api/runs/$runId/events" `
   -ContentType application/json `
@@ -77,6 +79,7 @@ Invoke-RestMethod `
   -Body (@{
     type = 2
     name = "analyze-logs"
+    parentEventId = $agentEvent.id
     status = 1
     model = "gpt-5"
     inputTokens = 800
@@ -97,6 +100,7 @@ Invoke-RestMethod `
   -Body (@{
     type = 4
     name = "production-deployment"
+    parentEventId = $agentEvent.id
     status = 3
     requestedScope = "deployments:write"
     grantedScope = "deployments:read"
@@ -130,7 +134,7 @@ Invoke-RestMethod "http://localhost:5205/api/runs/$runId" |
   ConvertTo-Json -Depth 10
 ```
 
-The trace includes all events and aggregate duration, token, cost, and status information.
+The trace includes all events and aggregate duration, token, cost, and status information. Open `http://localhost:5205/?run=<runId>` to inspect it visually. An optional `parentEventId` must refer to an event already recorded in the same run; this preserves actual hierarchy instead of guessing delegation from agent names.
 
 ## 8. View the root-cause analysis
 

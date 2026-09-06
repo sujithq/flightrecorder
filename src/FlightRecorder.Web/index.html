@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Agent Flight Recorder</title>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to trace</a>
+  <header class="app-header">
+    <div class="brand"><span class="brand-mark"><i data-lucide="radio-tower"></i></span><h1>Agent Flight Recorder</h1></div>
+    <div class="header-actions">
+      <span class="local-indicator"><span></span> Local recorder</span>
+      <button class="icon-button" id="refresh" title="Refresh runs" aria-label="Refresh runs"><i data-lucide="refresh-cw"></i></button>
+      <details class="menu" id="demo-menu">
+        <summary class="command"><i data-lucide="plus"></i><span>Demo run</span><i data-lucide="chevron-down"></i></summary>
+        <div class="menu-items">
+          <button data-scenario="blocked"><i data-lucide="shield-alert"></i>Blocked deployment repair</button>
+          <button data-scenario="approved"><i data-lucide="shield-check"></i>Approved deployment repair</button>
+        </div>
+      </details>
+    </div>
+  </header>
+  <div id="message" role="alert" hidden></div>
+  <main class="workbench" id="workbench">
+    <aside class="run-sidebar" aria-label="Run history">
+      <div class="sidebar-heading"><h2>Run history</h2><span id="run-count" class="count">0</span></div>
+      <label class="search-box"><i data-lucide="search"></i><input id="run-search" type="search" placeholder="Search runs" aria-label="Search runs"></label>
+      <label class="sr-only" for="status-filter">Filter run status</label>
+      <select id="status-filter"><option value="all">All statuses</option><option value="Started">Running</option><option value="Succeeded">Succeeded</option><option value="Blocked">Blocked</option><option value="Failed">Failed</option></select>
+      <nav id="run-list" aria-label="Recorded runs"><div class="empty compact">Loading runs...</div></nav>
+      <div class="sidebar-footer"><i data-lucide="database"></i><span>In-memory trace store</span></div>
+    </aside>
+    <section class="workspace" id="workspace" aria-label="Trace workspace" tabindex="-1">
+      <div id="run-overview"></div>
+      <section id="analysis" class="analysis" aria-label="Run diagnosis" hidden></section>
+      <div id="trace-tools" hidden>
+        <div class="view-tabs" role="tablist" aria-label="Trace views">
+          <button id="tab-timeline" role="tab" data-view="timeline" aria-controls="view-panel"><i data-lucide="list-tree"></i>Timeline</button>
+          <button id="tab-graph" role="tab" data-view="graph" aria-controls="view-panel"><i data-lucide="network"></i>Agent graph</button>
+          <button id="tab-policies" role="tab" data-view="policies" aria-controls="view-panel"><i data-lucide="shield-check"></i>Policies</button>
+          <button id="tab-comparison" role="tab" data-view="comparison" aria-controls="view-panel"><i data-lucide="git-compare-arrows"></i>Compare</button>
+        </div>
+      </div>
+      <section id="view-panel" class="view-panel" role="tabpanel" aria-labelledby="tab-timeline"><div class="empty"><i data-lucide="radio-tower"></i><h2>No run selected</h2></div></section>
+    </section>
+    <aside id="inspector" class="inspector" aria-label="Decision evidence" hidden></aside>
+  </main>
+</body>
+</html>

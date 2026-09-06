@@ -33,3 +33,7 @@ C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecord
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\ModelContextProtocol.AspNetCore.dll
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\ModelContextProtocol.Core.dll
 C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\FlightRecorder.Api.csproj.AssemblyReference.cache
+C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\bin\Debug\net10.0\FlightRecorder.Api.staticwebassets.runtime.json
+C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\compressed\llyw151q65-{0}-r9njgyunh5-r9njgyunh5.gz
+C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\compressed\60ixjl3xhp-{0}-02xzilywei-02xzilywei.gz
+C:\Users\squintelier\source\repos\github\sujithq\flightrecorder\src\FlightRecorder.Api\obj\Debug\net10.0\compressed\7mh4gwgog3-{0}-8xw6v53bke-8xw6v53bke.gz

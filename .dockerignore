@@ -1,6 +1,15 @@
 **/bin/
 **/obj/
 **/TestResults/
+**/node_modules/
+artifacts/
+src/FlightRecorder.Api/wwwroot/
+.squad/
+.copilot/
+.playwright-mcp/
+.mcp.json
+extensions/
+integrations/
 .git/
 .github/
 .vs/

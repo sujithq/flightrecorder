@@ -14,7 +14,7 @@ public sealed class FlightRecorderMcpTools(IFlightRecorderService recorder)
         [Description("The user request or task being executed.")] string request,
         [Description("The agent that owns the run.")] string entryPointAgent,
         [Description("The identity that requested the run.")] string requestingIdentity,
-        [Description("MetadataOnly omits event input/output, Redacted removes common secrets, and Full retains input/output.")] RecordingMode recordingMode = RecordingMode.MetadataOnly)
+        [Description("MetadataOnly omits request and event content, Redacted removes common secrets and PII, and Full retains content.")] RecordingMode recordingMode = RecordingMode.MetadataOnly)
         => recorder.StartRun(new StartRunRequest
         {
             Request = request,
@@ -47,7 +47,8 @@ public sealed class FlightRecorderMcpTools(IFlightRecorderService recorder)
         [Description("Estimated monetary cost of this event.")] decimal estimatedCost = 0,
         [Description("Input or sanitized parameters supplied to the operation.")] string? input = null,
         [Description("Output or result returned by the operation.")] string? output = null,
-        [Description("Additional searchable event metadata.")] Dictionary<string, string>? attributes = null)
+        [Description("Additional event metadata, subject to the run recording policy.")] Dictionary<string, string>? attributes = null,
+        [Description("An existing event ID in this run that owns this child operation or delegation.")] Guid? parentEventId = null)
         => recorder.RecordEvent(runId, new RecordEventRequest
         {
             Type = type,
@@ -70,7 +71,8 @@ public sealed class FlightRecorderMcpTools(IFlightRecorderService recorder)
             EstimatedCost = estimatedCost,
             Input = input,
             Output = output,
-            Attributes = attributes
+            Attributes = attributes,
+            ParentEventId = parentEventId
         });
 
     [McpServerTool(Name = "complete_flight_run")]

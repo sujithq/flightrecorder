@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using FlightRecorder.Api.Models;
 using FlightRecorder.Api.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -20,8 +21,15 @@ public sealed class RunsController(IFlightRecorderService recorder) : Controller
     [HttpPost("{runId:guid}/events")]
     public ActionResult<FlightEvent> RecordEvent(Guid runId, RecordEventRequest request)
     {
-        var evt = recorder.RecordEvent(runId, request);
-        return evt is null ? NotFound() : Created($"/api/runs/{runId}/events/{evt.Id}", evt);
+        try
+        {
+            var evt = recorder.RecordEvent(runId, request);
+            return evt is null ? NotFound() : Created($"/api/runs/{runId}/events/{evt.Id}", evt);
+        }
+        catch (Exception error) when (error is ArgumentException or ValidationException)
+        {
+            return Problem(statusCode: 400, title: "Invalid event", detail: error.Message);
+        }
     }
 
     [HttpPost("{runId:guid}/complete")]

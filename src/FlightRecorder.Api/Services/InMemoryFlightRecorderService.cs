@@ -1,18 +1,33 @@
 using System.Collections.Concurrent;
-using System.Text.RegularExpressions;
+using System.Collections.ObjectModel;
+using System.ComponentModel.DataAnnotations;
 using FlightRecorder.Api.Models;
 
 namespace FlightRecorder.Api.Services;
 
 public sealed class InMemoryFlightRecorderService : IFlightRecorderService
 {
-    private static readonly Regex SecretPattern = new("(?i)(token|password|secret|api[_-]?key)(\\s*[:=]\\s*)[^\\s,;]+", RegexOptions.Compiled);
+    private static readonly HashSet<string> MetadataKeys = new(StringComparer.Ordinal)
+    {
+        "http.request.method", "http.response.status_code", "gen_ai.operation.name",
+        "gen_ai.request.model", "gen_ai.agent.name", "gen_ai.tool.name", "gen_ai.policy.decision",
+        "gen_ai.data.classification"
+    };
+    private readonly TraceRedactor redactor;
     private readonly ConcurrentDictionary<Guid, TraceRun> runs = new();
+
+    public InMemoryFlightRecorderService(TraceRedactor? redactor = null)
+    {
+        this.redactor = redactor ?? new TraceRedactor();
+    }
 
     public TraceRun StartRun(StartRunRequest request)
     {
-        var run = new TraceRun(Guid.NewGuid(), request.Request.Trim(), request.EntryPointAgent.Trim(),
-            request.RequestingIdentity.Trim(), request.RecordingMode, DateTimeOffset.UtcNow, null, []);
+        Validator.ValidateObject(request, new ValidationContext(request), true);
+        var mode = request.RecordingMode;
+        var run = new TraceRun(Guid.NewGuid(), Protect(mode, request.Request.Trim()) ?? "[Content omitted]",
+            Metadata(mode, request.EntryPointAgent.Trim())!, Metadata(mode, request.RequestingIdentity.Trim())!,
+            mode, DateTimeOffset.UtcNow, null, []);
         runs[run.Id] = run;
         return run;
     }
@@ -28,21 +43,28 @@ public sealed class InMemoryFlightRecorderService : IFlightRecorderService
     public FlightEvent? RecordEvent(Guid runId, RecordEventRequest request)
     {
         if (!runs.TryGetValue(runId, out var current)) return null;
-        var evt = new FlightEvent(Guid.NewGuid(), runId, request.Type, request.Name.Trim(), request.StartedAt,
-            request.EndedAt, request.Status, request.AgentName, request.AgentVersion, request.Model,
-            request.ToolServer, request.Identity, request.Objective, request.RequestedScope, request.GrantedScope,
-            request.PolicyName, request.PolicyReason, request.InputTokens, request.OutputTokens,
-            request.EstimatedCost, Protect(current.RecordingMode, request.Input), Protect(current.RecordingMode, request.Output),
-            request.Attributes);
-        var updated = current with { Events = [.. current.Events, evt] };
-        runs[runId] = updated;
+        Validator.ValidateObject(request, new ValidationContext(request), true);
+        if (request.ParentEventId is { } parentId && current.Events.All(evt => evt.Id != parentId))
+            throw new ArgumentException("Parent event must already exist in the same run.", nameof(request));
+        var mode = current.RecordingMode;
+        var evt = new FlightEvent(Guid.NewGuid(), runId, request.Type, Metadata(mode, request.Name.Trim())!, request.StartedAt,
+            request.EndedAt, request.Status, Metadata(mode, request.AgentName), Metadata(mode, request.AgentVersion), Metadata(mode, request.Model),
+            Metadata(mode, request.ToolServer), Metadata(mode, request.Identity), Protect(mode, request.Objective),
+            Metadata(mode, request.RequestedScope), Metadata(mode, request.GrantedScope),
+            Metadata(mode, request.PolicyName), Metadata(mode, request.PolicyReason), request.InputTokens, request.OutputTokens,
+            request.EstimatedCost, Protect(mode, request.Input), Protect(mode, request.Output),
+            ProtectAttributes(mode, request.Attributes), request.ParentEventId);
+        while (!runs.TryUpdate(runId, current with { Events = [.. current.Events, evt] }, current))
+            current = runs[runId];
         return evt;
     }
 
     public bool CompleteRun(Guid runId, DateTimeOffset? endedAt = null)
     {
         if (!runs.TryGetValue(runId, out var current)) return false;
-        runs[runId] = current with { EndedAt = endedAt ?? DateTimeOffset.UtcNow };
+        var completionTime = endedAt ?? DateTimeOffset.UtcNow;
+        while (!runs.TryUpdate(runId, current with { EndedAt = completionTime }, current))
+            current = runs[runId];
         return true;
     }
 
@@ -77,10 +99,27 @@ public sealed class InMemoryFlightRecorderService : IFlightRecorderService
             next, evidence);
     }
 
-    private static string? Protect(RecordingMode mode, string? value) => mode switch
+    private string? Protect(RecordingMode mode, string? value) => mode switch
     {
         RecordingMode.MetadataOnly => null,
-        RecordingMode.Redacted => string.IsNullOrWhiteSpace(value) ? value : SecretPattern.Replace(value, "$1$2[REDACTED]"),
+        RecordingMode.Redacted => redactor.Redact(value),
         _ => value
     };
+
+    private string? Metadata(RecordingMode mode, string? value)
+        => mode == RecordingMode.Full ? value : redactor.Redact(value);
+
+    private IReadOnlyDictionary<string, string>? ProtectAttributes(RecordingMode mode, Dictionary<string, string>? attributes)
+    {
+        if (attributes is null) return null;
+        var protectedAttributes = new Dictionary<string, string>();
+        foreach (var attribute in attributes)
+        {
+            if (mode == RecordingMode.MetadataOnly && !MetadataKeys.Contains(attribute.Key)) continue;
+            var key = Metadata(mode, attribute.Key)!;
+            protectedAttributes[key] = mode != RecordingMode.Full && redactor.IsSecretKey(attribute.Key)
+                ? TraceRedactor.Replacement : Metadata(mode, attribute.Value)!;
+        }
+        return new ReadOnlyDictionary<string, string>(protectedAttributes);
+    }
 }

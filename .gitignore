@@ -3,6 +3,16 @@
 [Oo]bj/
 artifacts/
 
+# JavaScript tooling and generated viewer assets
+node_modules/
+src/FlightRecorder.Api/wwwroot/
+extensions/flight-recorder/media/
+*.vsix
+playwright-report/
+.playwright-mcp/
+test-results/
+__pycache__/
+
 # Test results and coverage
 [Tt]est[Rr]esult*/
 *.trx
@@ -51,3 +61,13 @@ secrets.json
 .DS_Store
 Thumbs.db
 Desktop.ini
+# Squad: ignore runtime state (logs, inbox, sessions)
+# Note: .squad/casting/* is identity and MUST be committed to main, not ignored
+.squad/orchestration-log/
+.squad/log/
+.squad/decisions/inbox/
+.squad/sessions/
+.squad/.scratch/
+.squad/.cache/
+# Squad: SubSquad activation file (local to this machine)
+.squad-workstream

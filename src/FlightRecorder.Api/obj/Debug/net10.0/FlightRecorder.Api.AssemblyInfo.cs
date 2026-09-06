@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("FlightRecorder.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+217c1293a88d8cf2222230b6fd641f025a8d9fe3")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6961ec81c55367f0965fd22bcf701ed7897f3ac3")]
 [assembly: System.Reflection.AssemblyProductAttribute("FlightRecorder.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("FlightRecorder.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

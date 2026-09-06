@@ -1,0 +1,41 @@
+name: Flight Recorder Summary
+description: Add an evidence-linked agent trace summary and optionally publish a GitHub check.
+inputs:
+  run-id:
+    description: Recorded run UUID.
+    required: true
+  server-url:
+    description: Reachable recorder origin (HTTPS or loopback HTTP).
+    default: http://localhost:5205
+  publish:
+    description: Set to true to create a GitHub check in addition to the job summary.
+    default: 'false'
+  repository:
+    description: Repository to associate with the check.
+    default: ${{ github.repository }}
+  sha:
+    description: Full commit SHA to associate with the check.
+    default: ${{ github.sha }}
+  github-token:
+    description: Token with checks:write, required only when publish is true.
+    default: ''
+runs:
+  using: composite
+  steps:
+    - name: Write trace summary
+      shell: bash
+      env:
+        FLIGHT_RUN_ID: ${{ inputs.run-id }}
+        FLIGHTRECORDER_URL: ${{ inputs.server-url }}
+        FLIGHT_PUBLISH: ${{ inputs.publish }}
+        GITHUB_REPOSITORY: ${{ inputs.repository }}
+        GITHUB_SHA: ${{ inputs.sha }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        args=(--run-id "$FLIGHT_RUN_ID")
+        case "$FLIGHT_PUBLISH" in
+          true) args+=(--publish) ;;
+          false) ;;
+          *) printf '%s\n' 'publish must be true or false' >&2; exit 1 ;;
+        esac
+        node "$GITHUB_ACTION_PATH/../../../scripts/github-check.mjs" "${args[@]}"
