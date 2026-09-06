@@ -51,6 +51,32 @@ test("extension manifest uses Docker port 5080 by default", async () => {
   assert.equal(manifest.contributes.configuration.properties["flightRecorder.serverUrl"].default, "http://localhost:5080");
 });
 
+test("onboarding walkthrough packages its guide and links only to contributed commands", async () => {
+  const root = new URL("../../extensions/flight-recorder/", import.meta.url);
+  const manifest = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
+  const commands = new Set(manifest.contributes.commands.map(command => command.command));
+  const walkthrough = manifest.contributes.walkthroughs.find(item => item.id === "flightRecorder.localSetup");
+  assert.ok(walkthrough);
+  assert.equal(new Set(walkthrough.steps.map(step => step.id)).size, walkthrough.steps.length);
+  for (const step of walkthrough.steps) {
+    assert.ok(manifest.files.includes(step.media.markdown), `Guide is not packaged: ${step.media.markdown}`);
+    const guide = await readFile(new URL(step.media.markdown, root), "utf8");
+    assert.ok(guide.length > 0);
+    for (const match of `${step.description}\n${guide}`.matchAll(/\]\(command:([^)?]+)(?:\?[^)]*)?\)/g)) {
+      assert.ok(commands.has(match[1]), `Unknown walkthrough command: ${match[1]}`);
+    }
+  }
+  const firstRun = walkthrough.steps.find(step => step.id === "first-run");
+  assert.ok(firstRun, "Onboarding must continue beyond connecting MCP");
+  assert.ok(firstRun.description.includes("command:flightRecorder.openRun"));
+  assert.deepEqual(firstRun.completionEvents, [], "Opening a picker must not claim a trace was recorded");
+  const guide = await readFile(new URL(firstRun.media.markdown, root), "utf8");
+  const readme = await readFile(new URL("README.md", root), "utf8");
+  const prompt = text => text.replaceAll("\r\n", "\n").match(/```text\n([\s\S]*?)\n```/)?.[1];
+  assert.ok(prompt(guide), "The packaged guide must include a copyable first-task prompt");
+  assert.equal(prompt(guide), prompt(readme), "README and in-product first-task instructions must agree");
+});
+
 for (const command of ["flightRecorder.open", "flightRecorder.openRun"]) {
   test(`${command} uses Docker port 5080 without a configured override`, async () => {
     const result = await runExtensionCommand(command);

@@ -1,6 +1,19 @@
 # Agent Flight Recorder: Getting Started
 
-This guide demonstrates how to start the API and record a complete agent run using PowerShell.
+Start with the installed-extension quickstart below. The later sections also show
+how to operate a repository deployment and record a run directly using PowerShell.
+
+## Already installed: start in an empty folder
+
+Use the [empty-folder quickstart](../extensions/flight-recorder/README.md#quickstart-an-empty-folder-to-your-first-trace)
+for the exact Command Palette actions, setup choices, Copilot tool checks, and a
+copyable prompt that creates your first recorded task. It works without cloning
+this repository or creating MCP files.
+
+The sequence is **Set Up Local Recorder -> Connect to Copilot -> ask Agent mode to
+record a task -> Select Run**. A running service and connected MCP tools do not
+automatically record work. In another project, use the explicit prompt or add that
+project's own recording policy; this repository's instructions are not inherited.
 
 ## Install without cloning the repository
 

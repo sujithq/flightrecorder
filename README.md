@@ -15,6 +15,12 @@ images and packages and honor [NuGet.Config](NuGet.Config). Restart with Docker 
 Copilot MCP registration is also opt-in. Traces persist in a dedicated Docker volume.
 See the [extension installation guide](extensions/flight-recorder/README.md) for management and recovery.
 
+**Already installed, with an empty folder open?** Follow the
+[first-trace quickstart](extensions/flight-recorder/README.md#quickstart-an-empty-folder-to-your-first-trace):
+start the recorder, connect normal Copilot Agent mode, paste the first-task prompt,
+and inspect the saved run. No repository checkout or manual MCP files are needed;
+connecting tools alone does not start recording.
+
 ## Start with Docker from a checkout
 
 Docker Compose runs the API, MCP endpoint and viewer together. No manually started native API is needed.
