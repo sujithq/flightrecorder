@@ -40,6 +40,7 @@ public sealed class InMemoryTraceRunStore : ITraceRunStore
             if (!runs.TryGetValue(runId, out var current)) return null;
             var updated = update(current);
             if (updated.Id != runId) throw new ArgumentException("A run update cannot change its ID.", nameof(update));
+            if (ReferenceEquals(current, updated)) return current;
             runs[runId] = updated;
             if (updated.EndedAt is not null) Prune();
             return updated;

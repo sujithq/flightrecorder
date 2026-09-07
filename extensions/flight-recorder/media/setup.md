@@ -59,6 +59,25 @@ a run ID. Run **Flight Recorder: Select Run**, choose **First Flight Recorder ta
 and check the recorded events and completed status. Copilot merely saying it
 recorded something is not enough; look for actual tool calls and the saved run.
 
+## Optional: collect native Copilot usage
+
+For token information from ordinary Copilot sessions, run **Flight Recorder:
+Collect Local Copilot Usage**. Approve read-only local discovery, choose the
+specific session and a dedicated recorder run, then start collection. No session
+is guessed from "most recent"; no conversation text is uploaded.
+
+Choose measured usage only, or explicitly allow visible-text estimates when no
+measurements are present. The viewer labels estimates separately. Supported Chat
+JSON/JSONL and CLI usage-store fields vary by runtime; unavailable data is not zero.
+Keep source-reported Copilot credits separate from API estimates and invoice charges.
+
+Imports are revision-guarded snapshots so polling does not inflate totals. Use
+**Show Local Usage Collection Status**, **Import Bound Session Usage Now**, and
+**Stop Local Usage Collection** to manage it. One source per run is supported;
+do not combine imported usage with overlapping SDK/manual measurements.
+The collector is off on activation and after window reload. Update the API with
+**Rebuild / Update Local Recorder** before using these commands.
+
 ## When you come back
 
 Ensure Docker is running, then use **Show Local Recorder Status**, **Start Local

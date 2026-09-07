@@ -35,7 +35,7 @@ const excludedSegments = new Set([
 ]);
 const extensionFiles = new Set([
   "package.json", "extension.cjs", "webview.cjs", "setup.cjs", "docker-process.cjs",
-  "local-recorder.cjs", "mcp.cjs", "README.md", "LICENSE", "media/setup.md"
+  "local-recorder.cjs", "mcp.cjs", "usage-collector.cjs", "usage-sources.cjs", "README.md", "LICENSE", "media/setup.md"
 ]);
 const requiredExtensionFiles = ["extension.cjs", "webview.cjs", "README.md", "LICENSE"];
 

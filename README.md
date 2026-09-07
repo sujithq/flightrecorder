@@ -118,7 +118,11 @@ extension. Missing/unreachable version endpoints display **Version unavailable**
 
 ## Token usage and cost
 
-Usage is not automatically supplied by ordinary Copilot Chat or by installing the VSIX.
+Usage is not automatically supplied merely by installing the VSIX or enabling MCP.
+Use **Flight Recorder: Collect Local Copilot Usage** to opt into a selected native
+Copilot session and bind its usage to a dedicated run. The [local collection guide](docs/local-usage.md)
+covers supported persisted formats, measured versus estimated fields, privacy, and
+revision-guarded imports. Source data stays read-only; conversation content stays local.
 Unknown `inputTokens`, `outputTokens`, and `estimatedCost` are `null` and display as
 **Not reported**; explicit zero remains zero. Totals include only reported values,
 mark incomplete recorded model-call coverage as **partial**, and suppress misleading
@@ -133,6 +137,10 @@ Optional USD estimates require explicitly configured model prices and usage; Cop
 credits are never converted to dollars. Direct cost submissions must include a model,
 reported input/output tokens, and `costBasis`. Leave unknown values out rather than
 submitting placeholder zeros.
+
+Local session imports keep source-reported Copilot credits and their USD usage
+equivalent separate from provider/API `estimatedCost`. Credit-equivalent usage is
+not an invoice amount; text estimates are never included in measured totals.
 
 After installing a release containing these changes, run **Rebuild / Update Local Recorder**
 to update the API/viewer and refresh the MCP connection/tool schema. Existing clients

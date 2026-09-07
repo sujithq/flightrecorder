@@ -26,6 +26,7 @@ export function escapeHtml(value) {
 }
 
 export function durationMs(item, now = Date.now()) {
+  if (item.importedUsage && !item.endedAt) return 0;
   const started = Date.parse(item.startedAt);
   const ended = item.endedAt ? Date.parse(item.endedAt) : now;
   return Number.isFinite(started) && Number.isFinite(ended) ? Math.max(0, ended - started) : 0;
@@ -48,6 +49,24 @@ export function reportedTokens(metrics) {
   const values = [metrics.inputTokens, metrics.outputTokens].filter(Number.isFinite);
   return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
 }
+
+export function estimatedTokens(metrics) {
+  const values = [metrics.estimatedInputTokens, metrics.estimatedOutputTokens].filter(Number.isFinite);
+  return values.length ? values.reduce((sum, value) => sum + value, 0) : null;
+}
+
+export function importQualityCounts(events) {
+  const counts = { measured: 0, estimated: 0, unavailable: 0 };
+  for (const event of events) {
+    const quality = event.importedUsage?.quality;
+    if (Object.hasOwn(counts, quality)) counts[quality]++;
+  }
+  return counts;
+}
+
+export const formatCredits = value => !Number.isFinite(value) ? "Not reported"
+  : value > 0 && value < 0.0001 ? "<0.0001"
+    : new Intl.NumberFormat("en-US", { maximumFractionDigits: 4 }).format(value);
 
 export function usageComplete(metrics, kind) {
   if (kind === "cost") return Number.isFinite(metrics.estimatedCost) && metrics.usage?.costComplete === true;
@@ -78,7 +97,7 @@ export function timelineBounds(run, now = Date.now()) {
     .filter(Number.isFinite);
   const start = timestamps.length ? Math.min(...timestamps) : now;
   const ends = [run.endedAt ? Date.parse(run.endedAt) : now,
-    ...run.events.map(event => event.endedAt ? Date.parse(event.endedAt) : now)].filter(Number.isFinite);
+    ...run.events.map(event => event.endedAt ? Date.parse(event.endedAt) : event.importedUsage ? Date.parse(event.startedAt) : now)].filter(Number.isFinite);
   const end = Math.max(start + 1, ...ends);
   return { start, end, duration: end - start };
 }

@@ -13,7 +13,8 @@ import "@fontsource/ibm-plex-mono/latin-400.css";
 import "./styles.css";
 import {
   escapeHtml, statusName, eventTypeName, recordingModeName, durationMs,
-  formatDuration, formatNumber, formatCost, formatUsage, reportedTokens, usageComplete, usageLabel, recorderVersionLabel, eventDepth, timelineBounds
+  formatDuration, formatNumber, formatCost, formatUsage, reportedTokens, estimatedTokens, importQualityCounts, formatCredits,
+  usageComplete, usageLabel, recorderVersionLabel, eventDepth, timelineBounds
 } from "./model.js";
 
 const icons = {
@@ -112,7 +113,7 @@ function renderRuns() {
   refreshIcons();
 }
 
-async function refreshRuns(initial = false) {
+async function refreshRuns(initial = false, forceCurrent = false) {
   try {
     state.runs = await api("runs");
     renderRuns();
@@ -120,7 +121,7 @@ async function refreshRuns(initial = false) {
       const requested = query.get("run");
       if (requested) await selectRun(requested, true);
       else if (state.runs.length) await selectRun(state.runs[0].id);
-    } else if (state.run && !state.run.endedAt) {
+    } else if (state.run && (!state.run.endedAt || state.run.usageImports?.length || forceCurrent)) {
       await selectRun(state.run.id, true);
     }
   } catch (error) { notify(error.message); }
@@ -154,6 +155,8 @@ function metric(label, value, className = "") {
 
 function renderOverview() {
   const run = state.run;
+  const imported = importQualityCounts(run.events);
+  const hasImports = Object.values(imported).some(count => count > 0);
   element("#trace-tools").hidden = false;
   const interventionCount = run.events.filter(event => ["Blocked", "RequiresApproval"].includes(statusName(event.status)) && eventTypeName(event.type) === "PolicyDecision").length;
   element("#run-overview").innerHTML = `
@@ -165,7 +168,13 @@ function renderOverview() {
       <button data-export="github">${icon("git-pull-request")}GitHub check JSON</button><button data-export="badge">${icon("monitor")}Badger summary</button>
     </div></details></div></div>
     <div class="metrics">${metric("Duration", formatDuration(durationMs(run)))}${metric("Events", formatNumber(run.events.length))}${metric("Reported tokens", usageLabel(run, "tokens"))}${metric("Reported est. cost", usageLabel(run, "cost"))}${metric("Interventions", interventionCount, interventionCount ? "metric-warning" : "")}</div>
-    <p class="usage-note">Usage covers reported events only, not unobserved model calls. Copilot Chat does not automatically supply usage here. Missing measurements are not zero; USD estimates are not Copilot billing credits.</p>`;
+    ${hasImports ? `<div class="metrics imported-metrics">
+      ${metric("Text estimate (tokens)", formatUsage(estimatedTokens(run)))}
+      ${metric("Reported Copilot credits", formatCredits(run.copilotCredits))}
+      ${metric("Credit-equivalent USD", formatCost(run.copilotUsageValueUsd))}
+    </div><p class="usage-note import-summary">Local imports: ${imported.measured} measured, ${imported.estimated} estimated, ${imported.unavailable} unavailable observations.
+      Text estimates count visible transcript characters, not full model context. Credit-equivalent USD is source billing usage value, not your invoice or a provider/API estimate.</p>` : ""}
+    <p class="usage-note">Usage covers reported events only, not unobserved model calls. Local Copilot session collection must be explicitly enabled in the extension. Missing measurements are not zero; measured tokens, text estimates, API price estimates and Copilot credits remain separate.</p>`;
   refreshIcons();
 }
 
@@ -311,6 +320,11 @@ function renderComparison() {
       Number.isFinite(value(after)) && !usageComplete(after, kind));
   };
   element("#comparison-results").innerHTML = `<div class="comparison-metrics">${deltaMetric("Duration", comparison.baseline.durationMilliseconds, comparison.candidate.durationMilliseconds, formatDuration)}${usageDelta("tokens")}${usageDelta("cost")}${deltaMetric("Interventions", comparison.baseline.policyInterventions, comparison.candidate.policyInterventions)}</div>
+    ${[comparison.baseline, comparison.candidate].some(item => estimatedTokens(item) !== null || Number.isFinite(item.copilotCredits)) ? `<div class="comparison-metrics">
+      ${deltaMetric("Text estimate (tokens)", estimatedTokens(comparison.baseline), estimatedTokens(comparison.candidate), formatUsage, false)}
+      ${deltaMetric("Reported Copilot credits", comparison.baseline.copilotCredits, comparison.candidate.copilotCredits, formatCredits, false)}
+      ${deltaMetric("Credit-equivalent USD", comparison.baseline.copilotUsageValueUsd, comparison.candidate.copilotUsageValueUsd, formatCost, false)}
+    </div><p class="usage-note">Source estimates and credit usage may have different coverage; no savings delta is inferred. Credit equivalents are not invoice charges.</p>` : ""}
     <div class="panel-toolbar"><h3>Event changes <span class="count">${events.length}</span></h3><select id="change-filter" aria-label="Filter event changes"><option value="all">All events</option><option value="changed">Changed</option><option value="added">Added</option><option value="removed">Removed</option><option value="unchanged">Unchanged</option></select></div>
     <div class="comparison-list">${events.map((comparisonEvent, index) => {
       const event = comparisonEvent.candidate ?? comparisonEvent.baseline;
@@ -336,9 +350,21 @@ function renderInspector(override = null, comparisonLabel = "") {
     <div class="inspector-title"><span class="type-icon type-${eventTypeName(event.type).toLowerCase()}">${icon(typeIcon(event.type))}</span><h2>${escapeHtml(event.name)}</h2>${statusBadge(event.status)}</div>
     ${edge ? `<section><h3>Recorded connection</h3><dl>${detail("Delegated objective", edge.objective)}${detail("Source identity", edge.sourceIdentity)}${detail("Destination identity", edge.targetIdentity)}${detail("Identity changed", edge.identityChanged ? "Yes" : "No")}${detail("Duration", formatDuration(edge.durationMilliseconds))}</dl></section>` : ""}
     ${event.policyName || event.requestedScope || event.policyReason ? `<section class="policy-evidence"><h3>${icon("shield-check")}Identity & permission</h3><dl>${detail("Identity", event.identity)}${detail("Requested scope", event.requestedScope)}${detail("Granted scope", event.grantedScope)}${detail("Policy", event.policyName)}${detail("Decision", statusName(event.status))}${detail("Reason", event.policyReason)}</dl></section>` : ""}
-    <section><h3>Operation</h3><dl>${detail("Event ID", event.id)}${detail("Type", eventTypeName(event.type))}${detail("Agent", event.agentName)}${detail("Agent version", event.agentVersion)}${detail("Identity", event.identity)}${detail("Parent identity", parent?.identity)}${detail("Objective", event.objective)}${detail("Model", event.model)}${detail("Tool server", event.toolServer)}${detail("Started", new Date(event.startedAt).toLocaleString())}${detail("Duration", formatDuration(durationMs(event)))}</dl></section>
+    <section><h3>Operation</h3><dl>${detail("Event ID", event.id)}${detail("Type", eventTypeName(event.type))}${detail("Agent", event.agentName)}${detail("Agent version", event.agentVersion)}${detail("Identity", event.identity)}${detail("Parent identity", parent?.identity)}${detail("Objective", event.objective)}${detail("Model", event.model)}${detail("Tool server", event.toolServer)}${detail(event.importedUsage ? "Observation / import time" : "Started", new Date(event.startedAt).toLocaleString())}${detail("Duration", event.importedUsage ? "Not reported" : formatDuration(durationMs(event)))}</dl></section>
     <section><h3>Reported usage</h3><dl>${detail("Input tokens", formatUsage(event.inputTokens))}${detail("Output tokens", formatUsage(event.outputTokens))}${detail("Estimated cost (USD)", formatCost(event.estimatedCost))}${detail("Pricing basis", event.costBasis ?? (Number.isFinite(event.estimatedCost) ? "Not reported (legacy estimate)" : null))}</dl>
     ${event.usageSchemaVersion == null ? '<p class="usage-note">Legacy event: default zeros could not be distinguished from measured zero. Missing usage cannot be reconstructed.</p>' : ""}</section>
+    ${event.importedUsage ? `<section class="usage-provenance"><h3>Local usage provenance</h3><dl>
+      ${detail("Quality", event.importedUsage.quality)}
+      ${detail("Source", event.importedUsage.sourceKind)}
+      ${detail("Format", event.importedUsage.format)}
+      ${detail("Timestamp meaning", event.importedUsage.timestampMeaning)}
+      ${detail("Estimated input tokens", formatUsage(event.importedUsage.estimatedInputTokens))}
+      ${detail("Estimated output tokens", formatUsage(event.importedUsage.estimatedOutputTokens))}
+      ${detail("Cache-read tokens", formatUsage(event.importedUsage.cacheReadTokens))}
+      ${detail("Cache-write tokens", formatUsage(event.importedUsage.cacheWriteTokens))}
+      ${detail("Reported billing nano-AIU", formatUsage(event.importedUsage.nanoAiu))}
+      ${detail("Source fingerprint", event.importedUsage.sourceId)}
+    </dl><p class="usage-note">Imported metadata only; the local session's conversation text and file path are not stored here. Estimates are not measured usage; billing values are not additional charges.</p></section>` : ""}
     ${event.input ? `<section><h3>Recorded input</h3><pre>${escapeHtml(event.input)}</pre></section>` : ""}${event.output ? `<section><h3>Recorded output</h3><pre>${escapeHtml(event.output)}</pre></section>` : ""}
     ${event.attributes && Object.keys(event.attributes).length ? `<section><h3>Attributes</h3><dl>${Object.entries(event.attributes).map(([key, value]) => detail(key, value)).join("")}</dl></section>` : ""}
     <details class="raw-event"><summary>${icon("braces")}Event JSON</summary><pre>${escapeHtml(JSON.stringify(event, null, 2))}</pre></details>`;
@@ -460,7 +486,7 @@ document.addEventListener("keydown", event => {
 
 element("#run-search").addEventListener("input", event => { state.search = event.target.value; renderRuns(); });
 element("#status-filter").addEventListener("change", event => { state.filter = event.target.value; renderRuns(); });
-element("#refresh").addEventListener("click", () => { void refreshVersion(); void refreshRuns(); });
+element("#refresh").addEventListener("click", () => { void refreshVersion(); void refreshRuns(false, true); });
 document.addEventListener("change", event => {
   if (event.target.id === "policy-filter") { state.policyFilter = event.target.value; renderPolicies(); }
   if (event.target.id === "baseline-select") { state.baseline = event.target.value; void loadComparison(); }

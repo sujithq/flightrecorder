@@ -2,6 +2,7 @@ const vscode = require("vscode");
 const { randomBytes } = require("node:crypto");
 const { validateServerUrl, withRun, panelHtml } = require("./webview.cjs");
 const { registerLocalSetup } = require("./setup.cjs");
+const { registerUsageCollection } = require("./usage-collector.cjs");
 
 function activate(context) {
   let panel;
@@ -56,6 +57,7 @@ function activate(context) {
     new vscode.Disposable(() => panel?.dispose())
   );
   registerLocalSetup(vscode, context, { open, getOrigin: () => serverUrl().origin });
+  registerUsageCollection(vscode, context, { open, getOrigin: () => serverUrl().origin });
 }
 
 module.exports = { activate };

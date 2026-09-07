@@ -52,7 +52,8 @@ public static class TraceViewService
     public static RunMetrics Metrics(TraceRun run) => new(run.Events.Count, run.Duration.TotalMilliseconds,
         run.InputTokens, run.OutputTokens,
         run.EstimatedCost, run.Events.Count(evt => evt.Type == FlightEventType.PolicyDecision &&
-            evt.Status is FlightEventStatus.Blocked or FlightEventStatus.RequiresApproval), run.Usage);
+            evt.Status is FlightEventStatus.Blocked or FlightEventStatus.RequiresApproval), run.Usage,
+        run.EstimatedInputTokens, run.EstimatedOutputTokens, run.CopilotCredits, run.CopilotUsageValueUsd);
 
     private static Dictionary<string, FlightEvent> Index(TraceRun run)
     {
@@ -91,7 +92,8 @@ public static class TraceViewService
             ("InputTokens", baseline.InputTokens, candidate.InputTokens),
             ("OutputTokens", baseline.OutputTokens, candidate.OutputTokens),
             ("EstimatedCost", baseline.EstimatedCost, candidate.EstimatedCost),
-            ("CostBasis", baseline.CostBasis, candidate.CostBasis)
+            ("CostBasis", baseline.CostBasis, candidate.CostBasis),
+            ("ImportedUsage", baseline.ImportedUsage, candidate.ImportedUsage)
         ];
         return fields.Where(field => !Equals(field.Before, field.After)).Select(field => field.Name).ToArray();
     }

@@ -263,5 +263,5 @@ public sealed class TracePersistenceTests : IDisposable
     public void Configured_data_directory_must_be_absolute(string path)
         => Assert.Throws<InvalidOperationException>(() => new TraceStorageOptions { DataDirectory = path }.ResolveDataDirectory());
 
-    public void Dispose() => Directory.Delete(directory, recursive: true);
+    public void Dispose() => TestDirectory.Delete(directory);
 }

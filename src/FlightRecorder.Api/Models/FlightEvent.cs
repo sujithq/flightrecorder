@@ -51,7 +51,8 @@ public sealed record FlightEvent(
     IReadOnlyDictionary<string, string>? Attributes = null,
     Guid? ParentEventId = null,
     string? CostBasis = null,
-    int? UsageSchemaVersion = null)
+    int? UsageSchemaVersion = null,
+    ImportedUsage? ImportedUsage = null)
 {
     public TimeSpan Duration => (EndedAt ?? StartedAt) - StartedAt;
 }
@@ -64,7 +65,8 @@ public sealed record TraceRun(
     RecordingMode RecordingMode,
     DateTimeOffset StartedAt,
     DateTimeOffset? EndedAt,
-    IReadOnlyList<FlightEvent> Events)
+    IReadOnlyList<FlightEvent> Events,
+    IReadOnlyList<UsageImportCursor>? UsageImports = null)
 {
     public FlightEventStatus Status => Events.Any(e => e.Status == FlightEventStatus.Failed)
         ? FlightEventStatus.Failed
@@ -76,6 +78,10 @@ public sealed record TraceRun(
     public long? InputTokens => UsageTotals.Tokens(Events.Select(e => e.InputTokens));
     public long? OutputTokens => UsageTotals.Tokens(Events.Select(e => e.OutputTokens));
     public decimal? EstimatedCost => UsageTotals.Cost(Events.Select(e => e.EstimatedCost));
+    public long? EstimatedInputTokens => UsageTotals.Tokens(Events.Select(e => e.ImportedUsage?.EstimatedInputTokens));
+    public long? EstimatedOutputTokens => UsageTotals.Tokens(Events.Select(e => e.ImportedUsage?.EstimatedOutputTokens));
+    public decimal? CopilotCredits => UsageTotals.Cost(Events.Select(e => (decimal?)e.ImportedUsage?.NanoAiu)) / 1_000_000_000m;
+    public decimal? CopilotUsageValueUsd => UsageTotals.Cost(Events.Select(e => (decimal?)e.ImportedUsage?.NanoAiu)) / 100_000_000_000m;
     public UsageCoverage Usage => UsageCoverage.From(Events);
 }
 
@@ -92,7 +98,11 @@ public sealed record RunSummary(
     long? InputTokens,
     long? OutputTokens,
     decimal? EstimatedCost,
-    UsageCoverage? Usage = null);
+    UsageCoverage? Usage = null,
+    long? EstimatedInputTokens = null,
+    long? EstimatedOutputTokens = null,
+    decimal? CopilotCredits = null,
+    decimal? CopilotUsageValueUsd = null);
 
 public sealed record UsageCoverage(int EventCount, int InputTokenEvents, int OutputTokenEvents, int CostEvents)
 {

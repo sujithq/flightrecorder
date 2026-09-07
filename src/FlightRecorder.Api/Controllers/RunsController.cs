@@ -26,9 +26,33 @@ public sealed class RunsController(IFlightRecorderService recorder) : Controller
             var evt = recorder.RecordEvent(runId, request);
             return evt is null ? NotFound() : Created($"/api/runs/{runId}/events/{evt.Id}", evt);
         }
+        catch (UsageImportConflictException error)
+        {
+            return Problem(statusCode: 409, title: "Conflicting usage source", detail: error.Message);
+        }
         catch (Exception error) when (error is ArgumentException or ValidationException)
         {
             return Problem(statusCode: 400, title: "Invalid event", detail: error.Message);
+        }
+    }
+
+    [HttpPut("{runId:guid}/usage-imports/{sourceId}")]
+    [RequestSizeLimit(UsageImportValidation.MaximumRequestBytes)]
+    [UsageImportBodyLimit]
+    public ActionResult<UsageImportResult> ImportUsage(Guid runId, string sourceId, UsageImportRequest request)
+    {
+        try
+        {
+            var result = recorder.ImportUsage(runId, sourceId, request);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (UsageImportConflictException error)
+        {
+            return Problem(statusCode: 409, title: "Conflicting usage snapshot", detail: error.Message);
+        }
+        catch (ValidationException error)
+        {
+            return Problem(statusCode: 400, title: "Invalid usage snapshot", detail: error.Message);
         }
     }
 

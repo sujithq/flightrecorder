@@ -29,7 +29,11 @@
       { "command": "flightRecorder.logs", "title": "Show Local Recorder Logs", "category": "Flight Recorder" },
       { "command": "flightRecorder.dockerGuide", "title": "Docker Installation Guide", "category": "Flight Recorder" },
       { "command": "flightRecorder.connectCopilot", "title": "Connect to Copilot", "category": "Flight Recorder" },
-      { "command": "flightRecorder.disconnectCopilot", "title": "Disconnect from Copilot", "category": "Flight Recorder" }
+      { "command": "flightRecorder.disconnectCopilot", "title": "Disconnect from Copilot", "category": "Flight Recorder" },
+      { "command": "flightRecorder.collectUsage", "title": "Collect Local Copilot Usage", "category": "Flight Recorder" },
+      { "command": "flightRecorder.importUsage", "title": "Import Bound Session Usage Now", "category": "Flight Recorder" },
+      { "command": "flightRecorder.stopUsage", "title": "Stop Local Usage Collection", "category": "Flight Recorder" },
+      { "command": "flightRecorder.usageStatus", "title": "Show Local Usage Collection Status", "category": "Flight Recorder" }
     ],
     "mcpServerDefinitionProviders": [
       { "id": "flightRecorder.local", "label": "Flight Recorder (local)" }
@@ -67,6 +71,13 @@
             "description": "Copy the first-task prompt from this guide into Copilot Agent mode. Approve actual recorder calls, then select First Flight Recorder task and inspect its events. No custom agent or workspace configuration is required.\n[Select Run](command:flightRecorder.openRun)",
             "media": { "markdown": "media/setup.md" },
             "completionEvents": []
+          },
+          {
+            "id": "local-usage",
+            "title": "Optionally import native Copilot usage",
+            "description": "Opt in to reading a selected local session and bind it to a dedicated recorder run. Measured usage and optional text estimates stay separate. No conversation text is uploaded.\n[Collect Local Copilot Usage](command:flightRecorder.collectUsage)",
+            "media": { "markdown": "media/setup.md" },
+            "completionEvents": []
           }
         ]
       }
@@ -84,5 +95,5 @@
       }
     }
   },
-  "files": ["extension.cjs", "webview.cjs", "setup.cjs", "mcp.cjs", "docker-process.cjs", "local-recorder.cjs", "media/setup.md", "recorder/**", "README.md", "LICENSE"]
+  "files": ["extension.cjs", "webview.cjs", "setup.cjs", "mcp.cjs", "docker-process.cjs", "local-recorder.cjs", "usage-collector.cjs", "usage-sources.cjs", "media/setup.md", "recorder/**", "README.md", "LICENSE"]
 }

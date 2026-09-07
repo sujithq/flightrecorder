@@ -9,7 +9,9 @@ public sealed record GraphEdge(Guid SourceId, Guid TargetId, string? Objective, 
     string? TargetIdentity, bool IdentityChanged, double DurationMilliseconds);
 
 public sealed record RunMetrics(int EventCount, double DurationMilliseconds, long? InputTokens,
-    long? OutputTokens, decimal? EstimatedCost, int PolicyInterventions, UsageCoverage? Usage = null);
+    long? OutputTokens, decimal? EstimatedCost, int PolicyInterventions, UsageCoverage? Usage = null,
+    long? EstimatedInputTokens = null, long? EstimatedOutputTokens = null,
+    decimal? CopilotCredits = null, decimal? CopilotUsageValueUsd = null);
 
 public sealed record EventComparison(string Key, string Change, FlightEvent? Baseline,
     FlightEvent? Candidate, IReadOnlyList<string> ChangedFields);

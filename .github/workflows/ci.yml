@@ -37,6 +37,8 @@ jobs:
           tests/integrations/local-recorder.test.mjs
           tests/integrations/setup-ui.test.mjs
           tests/integrations/mcp-provider.test.mjs
+          tests/integrations/usage-sources.test.mjs
+          tests/integrations/usage-collector.test.mjs
           tests/integrations/webview.test.mjs
           tests/integrations/client-defaults.test.mjs
 

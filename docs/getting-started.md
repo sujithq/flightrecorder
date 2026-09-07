@@ -17,6 +17,12 @@ project's own recording policy; this repository's instructions are not inherited
 
 ## Install without cloning the repository
 
+Already recording tasks but missing tokens? Use **Flight Recorder: Collect Local
+Copilot Usage** to opt into a selected local session and an explicitly chosen run.
+See [local usage collection](local-usage.md) for measured fields, optional text
+estimates, billing-unit distinctions and duplicate prevention. Enabling MCP alone
+does not read your local session data.
+
 Install the VSIX from a published [GitHub release](https://github.com/sujithq/flightrecorder/releases)
 using **Extensions: Install from VSIX**, then invoke **Flight Recorder: Set Up Local Recorder**
 in a trusted local desktop window. The bundled API/web source is built inside Docker;

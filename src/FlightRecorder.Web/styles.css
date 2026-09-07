@@ -256,3 +256,5 @@ dd { margin: 0; font-size: 12px; line-height: 1.6; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; scroll-behavior: auto !important; } }
 .usage-note { color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
+.imported-metrics { margin-top: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.imported-metrics .metric > strong { font-size: 18px; }
