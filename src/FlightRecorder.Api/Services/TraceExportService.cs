@@ -30,6 +30,29 @@ public sealed class TraceExportService(TraceRedactor redactor)
             };
             if (evt.InputTokens is { } inputTokens) attributes.Add(Integer("gen_ai.usage.input_tokens", inputTokens));
             if (evt.OutputTokens is { } outputTokens) attributes.Add(Integer("gen_ai.usage.output_tokens", outputTokens));
+            if (evt.ImportedUsage is { } imported)
+            {
+                attributes.Add(Identifier("flightrecorder.usage.source_id", imported.SourceId));
+                attributes.Add(Identifier("flightrecorder.usage.observation_id", imported.ObservationId));
+                attributes.Add(Text("flightrecorder.usage.source_kind", imported.SourceKind));
+                attributes.Add(Text("flightrecorder.usage.format", imported.Format));
+                attributes.Add(Text("flightrecorder.usage.quality", imported.Quality));
+                attributes.Add(Text("flightrecorder.usage.timestamp_meaning", imported.TimestampMeaning));
+                if (imported.EstimatedInputTokens is { } estimatedInput)
+                    attributes.Add(Integer("flightrecorder.usage.estimated_input_tokens", estimatedInput));
+                if (imported.EstimatedOutputTokens is { } estimatedOutput)
+                    attributes.Add(Integer("flightrecorder.usage.estimated_output_tokens", estimatedOutput));
+                if (imported.CacheReadTokens is { } cacheRead)
+                    attributes.Add(Integer("flightrecorder.usage.cache_read_tokens", cacheRead));
+                if (imported.CacheWriteTokens is { } cacheWrite)
+                    attributes.Add(Integer("flightrecorder.usage.cache_write_tokens", cacheWrite));
+                if (imported.NanoAiu is { } nanoAiu)
+                {
+                    attributes.Add(Integer("flightrecorder.usage.nano_aiu", nanoAiu));
+                    attributes.Add(Decimal("flightrecorder.usage.copilot_credits", nanoAiu / 1_000_000_000m));
+                    attributes.Add(Decimal("flightrecorder.usage.copilot_usage_value_usd", nanoAiu / 100_000_000_000m));
+                }
+            }
             if (evt.EstimatedCost is { } cost)
             {
                 attributes.Add(new { key = "flightrecorder.estimated_cost", value = new { doubleValue = (double)cost } });
@@ -90,6 +113,14 @@ public sealed class TraceExportService(TraceRedactor redactor)
             .AppendLine(FormattableString.Invariant($"| {metrics.EventCount} | {metrics.DurationMilliseconds / 1000:0.###} s | {tokens} | {cost} |"))
             .AppendLine()
             .AppendLine("Usage totals cover reported events only, not unobserved model calls. Missing usage or pricing is not zero. USD estimates are not Copilot billing credits.");
+        if (run.EstimatedInputTokens.HasValue || run.EstimatedOutputTokens.HasValue)
+            summary.AppendLine().AppendLine(FormattableString.Invariant(
+                $"Recorded token estimates (not measured): input {run.EstimatedInputTokens?.ToString(CultureInfo.InvariantCulture) ?? "Not reported"}, output {run.EstimatedOutputTokens?.ToString(CultureInfo.InvariantCulture) ?? "Not reported"}."));
+        if (run.CopilotCredits is { } credits)
+            summary.AppendLine().AppendLine(FormattableString.Invariant(
+                $"Copilot credits: {credits:0.#########}; Copilot credit-equivalent USD: ${run.CopilotUsageValueUsd:0.###########}. Source accounting value, not an invoice or model-price estimate."));
+        if (run.UsageImports is { Count: > 0 })
+            summary.AppendLine().AppendLine("Imported snapshots may be partial. A newer revision replaces prior counters; withdrawn observations remain as unavailable evidence.");
         var details = new StringBuilder("## Decision evidence\n\n");
         var detailBytes = Encoding.UTF8.GetByteCount(details.ToString());
         var listedEvents = 0;
@@ -158,6 +189,8 @@ public sealed class TraceExportService(TraceRedactor redactor)
         };
 
     private object Text(string key, string value) => new { key, value = new { stringValue = redactor.Redact(value) } };
+    private static object Identifier(string key, string value) => new { key, value = new { stringValue = value } };
+    private static object Decimal(string key, decimal value) => new { key, value = new { doubleValue = (double)value } };
     private static object Integer(string key, long value) => new { key, value = new { intValue = value.ToString(CultureInfo.InvariantCulture) } };
     private static string SpanId(Guid identifier) => identifier.ToString("N")[..16];
     private static string Nanoseconds(DateTimeOffset timestamp)

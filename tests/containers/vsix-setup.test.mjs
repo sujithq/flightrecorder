@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { readFile, readdir, mkdtemp, mkdir, rm } from "node:fs/promises";
+import { readFile, readdir, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, isAbsolute, join, relative, resolve } from "node:path";
@@ -89,7 +89,7 @@ test("the released VSIX builds and runs from its own source without a checkout o
     assert.doesNotMatch(path, /\.(?:db|sqlite|sqlite3)(?:-|$)/i);
     assert.doesNotMatch(path, /appsettings\.(?:Local|Development)\.json$/i);
   }
-  for (const file of ["extension.cjs", "setup.cjs", "mcp.cjs", "docker-process.cjs", "local-recorder.cjs",
+  for (const file of ["extension.cjs", "setup.cjs", "mcp.cjs", "docker-process.cjs", "local-recorder.cjs", "usage-collector.cjs", "usage-sources.cjs",
     "media/setup.md", "recorder/context/Dockerfile", "recorder/context/NuGet.Config"]) {
     assert.ok(archiveFiles.includes(file), `Missing packaged input: ${file}`);
   }
@@ -199,6 +199,31 @@ test("the released VSIX builds and runs from its own source without a checkout o
   await resumed.rebuild();
   assert.deepEqual(await api(`runs/${trace.id}`), snapshot);
   assert.equal((await resumed.setRestart(false)).restart, false);
+  const { readSource } = require(join(extensionPath, "usage-sources.cjs"));
+  const { UsageCollection } = require(join(extensionPath, "usage-collector.cjs"));
+  const sessionFile = join(workspace, "synthetic-session.json");
+  await writeFile(sessionFile, JSON.stringify({ requests: [{
+    requestId: "synthetic-imported-request", modelId: "test-model",
+    result: { usage: { promptTokens: 15, completionTokens: 3 } }
+  }] }));
+  const source = { kind: "vscode-chat", path: sessionFile };
+  const sourceSnapshot = await readSource(source);
+  const importedRun = await api("runs", {
+    request: "Synthetic shipped collector acceptance", entryPointAgent: "collector-test",
+    requestingIdentity: "test", recordingMode: 1
+  });
+  const collection = new UsageCollection({
+    source, sourceId: sourceSnapshot.sourceId, runId: importedRun.id, origin, readSource
+  });
+  try {
+    assert.equal((await collection.sync()).changed, true);
+    assert.equal((await collection.sync()).changed, false);
+    const recorded = await api(`runs/${importedRun.id}`);
+    assert.equal(recorded.events.length, 1);
+    assert.equal(recorded.inputTokens, 15);
+    assert.equal(recorded.outputTokens, 3);
+    assert.equal(recorded.events[0].importedUsage.quality, "measured");
+  } finally { await collection.stop(); }
   assert.ok(calls.some(args => args.includes("build")));
   context.diagnostic("The extracted VSIX built and served API/viewer/MCP using only Docker, with scoped resources and preserved synthetic traces.");
   context.diagnostic("Docker build cache is retained; cleanup removes only this isolated test project's containers and volume.");

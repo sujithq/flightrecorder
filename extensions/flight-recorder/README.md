@@ -209,8 +209,9 @@ Only loopback URLs are accepted; this prototype has no authentication layer.
 
 ### Why usage may say "Not reported"
 
-Normal Copilot Chat does not provide its per-call token usage or billing data to this
-extension. Recording instructions cannot manufacture those measurements. The viewer
+Normal Copilot Chat does not push per-call token usage to the recorder through its
+recording instructions. **Collect Local Copilot Usage** can now opt into reading a
+selected persisted session instead; supported fields vary by runtime. The viewer
 shows **Not reported** for omitted token/cost fields, preserves explicitly reported
 zero, and labels known subtotals **partial** when recorded model-call usage is incomplete.
 It does not equate missing values to free work or calculate savings from incomplete data.
@@ -226,6 +227,37 @@ treats those old zeros as unknown, retains positive evidence, and labels missing
 pricing basis. Installing a newer VSIX alone does not update the API: run **Rebuild /
 Update Local Recorder**, then refresh the MCP connection so agents use the new nullable
 metric schema instead of cached zero defaults.
+
+## Collect usage from your normal Copilot sessions
+
+1. First update the recorder with **Rebuild / Update Local Recorder**.
+2. Run **Flight Recorder: Collect Local Copilot Usage** and approve read-only
+   discovery of your local session storage. Nothing is scanned on activation.
+3. Explicitly select a discovered session or a Chat JSON/JSONL / CLI database file.
+   Database sources require a session selection too.
+4. Choose **Measured usage only**, or explicitly allow approximate visible-text
+   estimates. Conversation text is never sent to the recorder.
+5. Choose a **dedicated session-usage run** (recommended), confirm the binding,
+   and select **Start Collection**. Open the recorder and inspect imported events.
+6. Use **Stop Local Usage Collection** when done; this completes only a successful
+   dedicated run owned by the collector. Reloading the window stops collection.
+
+**Show Local Usage Collection Status** reports state; **Import Bound Session Usage
+Now** immediately imports and resumes after a resolved failure. Polling is every ten
+seconds in this window only; bindings are not persisted or synced.
+
+The viewer keeps **measured tokens**, **text-estimated tokens**, **API price estimates**
+and **Copilot credit-equivalent usage** separate. An unchanged snapshot does not
+add usage again. Runs cannot mix overlapping SDK/manual measurements or another
+session source with local imports. These are entire-session observations, not an
+automatic mapping of all activity to your latest task.
+
+Unknown storage schemas, missing token fields, unsupported SQLite runtimes, or
+partially written files are reported. This collector is read-only, bounded, local
+desktop only, and requires the extension host's built-in SQLite support for `.db`
+sources. It does not install database tooling or promise every Copilot version has
+the same telemetry. See the [local collection guide](https://github.com/sujithq/flightrecorder/blob/main/docs/local-usage.md)
+for source formats, billing units, attribution and recovery.
 
 ## Existing and remote recorders
 

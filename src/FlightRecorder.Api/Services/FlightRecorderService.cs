@@ -4,7 +4,7 @@ using FlightRecorder.Api.Models;
 
 namespace FlightRecorder.Api.Services;
 
-public sealed class FlightRecorderService : IFlightRecorderService
+public sealed partial class FlightRecorderService : IFlightRecorderService
 {
     private static readonly HashSet<string> MetadataKeys = new(StringComparer.Ordinal)
     {
@@ -28,7 +28,7 @@ public sealed class FlightRecorderService : IFlightRecorderService
         var mode = request.RecordingMode;
         var run = new TraceRun(Guid.NewGuid(), Protect(mode, request.Request.Trim()) ?? "[Content omitted]",
             Metadata(mode, request.EntryPointAgent.Trim())!, Metadata(mode, request.RequestingIdentity.Trim())!,
-            mode, DateTimeOffset.UtcNow, null, []);
+            mode, DateTimeOffset.UtcNow, null, [], []);
         store.Add(run);
         return run;
     }
@@ -38,7 +38,8 @@ public sealed class FlightRecorderService : IFlightRecorderService
     public IReadOnlyList<RunSummary> ListRuns() => store.List()
         .OrderByDescending(run => run.StartedAt)
         .Select(run => new RunSummary(run.Id, run.Request, run.EntryPointAgent, run.RequestingIdentity, run.Status,
-            run.StartedAt, run.EndedAt, run.Duration, run.Events.Count, run.InputTokens, run.OutputTokens, run.EstimatedCost, run.Usage))
+            run.StartedAt, run.EndedAt, run.Duration, run.Events.Count, run.InputTokens, run.OutputTokens, run.EstimatedCost, run.Usage,
+            run.EstimatedInputTokens, run.EstimatedOutputTokens, run.CopilotCredits, run.CopilotUsageValueUsd))
         .ToArray();
 
     public FlightEvent? RecordEvent(Guid runId, RecordEventRequest request)
@@ -47,6 +48,10 @@ public sealed class FlightRecorderService : IFlightRecorderService
         store.Update(runId, current =>
         {
             Validator.ValidateObject(request, new ValidationContext(request), true);
+            if (current.UsageImports is { Count: > 0 } &&
+                (request.InputTokens.HasValue || request.OutputTokens.HasValue || request.EstimatedCost.HasValue ||
+                    HasCacheCounters(request.Attributes)))
+                throw new UsageImportConflictException("This run uses imported usage. Manual or SDK metering cannot be mixed with that source.");
             if (request.ParentEventId is { } parentId && current.Events.All(parent => parent.Id != parentId))
                 throw new ArgumentException("Parent event must already exist in the same run.", nameof(request));
             var mode = current.RecordingMode;

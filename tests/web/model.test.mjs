@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   statusName, eventTypeName, recordingModeName, escapeHtml, durationMs,
-  formatDuration, formatNumber, formatCost, formatUsage, reportedTokens, usageComplete, usageLabel, recorderVersionLabel, eventDepth, timelineBounds
+  formatDuration, formatNumber, formatCost, formatUsage, reportedTokens, estimatedTokens, importQualityCounts, formatCredits,
+  usageComplete, usageLabel, recorderVersionLabel, eventDepth, timelineBounds
 } from "../../src/FlightRecorder.Web/model.js";
 
 test("API enums accept numeric values and known string names only", () => {
@@ -37,6 +38,7 @@ test("duration uses timestamps including live runs and rejects invalid or negati
   assert.equal(durationMs({ startedAt }, Date.parse(startedAt) + 500), 500);
   assert.equal(durationMs({ startedAt }, Date.parse(startedAt) - 500), 0);
   assert.equal(durationMs({ startedAt: "invalid" }), 0);
+  assert.equal(durationMs({ startedAt, importedUsage: { timestampMeaning: "observed" } }, Date.parse(startedAt) + 500), 0);
 });
 
 test("metrics have stable units", () => {
@@ -75,6 +77,22 @@ test("usage totals identify partial data and permit comparisons only with comple
   assert.equal(usageLabel(complete, "cost"), "$0.0000");
   assert.equal(usageComplete(complete, "tokens"), true);
   assert.equal(usageComplete(complete, "cost"), true);
+});
+
+test("imported estimates and billing credits remain separate from measured usage", () => {
+  const metrics = { inputTokens: 100, outputTokens: 20, estimatedInputTokens: 10, estimatedOutputTokens: 4, copilotCredits: 0.25 };
+  assert.equal(reportedTokens(metrics), 120);
+  assert.equal(estimatedTokens(metrics), 14);
+  assert.equal(estimatedTokens({}), null);
+  assert.equal(estimatedTokens({ estimatedInputTokens: 0 }), 0);
+  assert.equal(formatCredits(null), "Not reported");
+  assert.equal(formatCredits(0), "0");
+  assert.equal(formatCredits(0.25), "0.25");
+  assert.equal(formatCredits(0.00001), "<0.0001");
+  assert.deepEqual(importQualityCounts([
+    {}, { importedUsage: { quality: "measured" } }, { importedUsage: { quality: "estimated" } },
+    { importedUsage: { quality: "unavailable" } }, { importedUsage: { quality: "__proto__" } }
+  ]), { measured: 1, estimated: 1, unavailable: 1 });
 });
 
 test("hierarchy follows recorded parents and terminates for orphaned or cyclic data", () => {

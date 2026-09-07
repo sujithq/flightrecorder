@@ -31,6 +31,6 @@ public sealed class FlightRecorderApiFactory : WebApplicationFactory<Program>
 
     private void CleanUp()
     {
-        while (directories.TryTake(out var directory)) Directory.Delete(directory, recursive: true);
+        while (directories.TryTake(out var directory)) TestDirectory.Delete(directory);
     }
 }

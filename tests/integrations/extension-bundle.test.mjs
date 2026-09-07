@@ -26,7 +26,7 @@ const requiredInputs = [
 ];
 const distributionFiles = [
   "extension.cjs", "webview.cjs", "setup.cjs", "docker-process.cjs", "local-recorder.cjs", "mcp.cjs",
-  "README.md", "LICENSE", "media/setup.md", "recorder/**"
+  "usage-collector.cjs", "usage-sources.cjs", "README.md", "LICENSE", "media/setup.md", "recorder/**"
 ];
 
 async function put(root, relativePath, content = "synthetic excluded test data") {
@@ -52,7 +52,7 @@ async function fixture(t) {
   for (const name of ["extension.cjs", "webview.cjs", "README.md"]) {
     await put(root, `${extensionPath}/${name}`, await readFile(path.join(repositoryRoot, extensionPath, name)));
   }
-  for (const name of ["setup.cjs", "docker-process.cjs", "local-recorder.cjs", "mcp.cjs"]) {
+  for (const name of ["setup.cjs", "docker-process.cjs", "local-recorder.cjs", "mcp.cjs", "usage-collector.cjs", "usage-sources.cjs"]) {
     await put(root, `${extensionPath}/${name}`, "module.exports = {};\n");
   }
   await put(root, `${extensionPath}/media/setup.md`, "# Synthetic setup guide\n");

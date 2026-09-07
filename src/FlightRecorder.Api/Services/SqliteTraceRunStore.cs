@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.ComponentModel.DataAnnotations;
 using FlightRecorder.Api.Models;
 using Microsoft.Data.Sqlite;
 
@@ -61,6 +62,11 @@ public sealed class SqliteTraceRunStore : ITraceRunStore
         if (current is null) return null;
         var updated = update(current);
         if (updated.Id != runId) throw new ArgumentException("A run update cannot change its ID.", nameof(update));
+        if (ReferenceEquals(current, updated))
+        {
+            transaction.Commit();
+            return current;
+        }
         Write(connection, transaction, updated, insert: false);
         if (updated.EndedAt is not null) Prune(connection, transaction);
         transaction.Commit();
@@ -164,10 +170,12 @@ public sealed class SqliteTraceRunStore : ITraceRunStore
                 throw new InvalidDataException();
             seen.Add(evt.Id);
         }
+        ValidateUsageImports(run);
         // Older writers persisted omitted measurements as zero. Those zeros cannot
         // be distinguished from measured zero; retain positive evidence, not guesses.
         return run with
         {
+            UsageImports = run.UsageImports ?? [],
             Events = run.Events.Select(evt => evt.UsageSchemaVersion is null ? evt with
             {
                 InputTokens = evt.InputTokens == 0 ? null : evt.InputTokens,
@@ -175,6 +183,49 @@ public sealed class SqliteTraceRunStore : ITraceRunStore
                 EstimatedCost = evt.EstimatedCost == 0 ? null : evt.EstimatedCost
             } : evt).ToArray()
         };
+    }
+
+    private static void ValidateUsageImports(TraceRun run)
+    {
+        var imported = run.Events.Where(evt => evt.ImportedUsage is not null).ToArray();
+        if (run.UsageImports is not { Count: > 0 })
+        {
+            if (imported.Length != 0) throw new InvalidDataException();
+            return;
+        }
+        if (run.UsageImports.Count != 1 || imported.Length is 0 or > UsageImportValidation.MaximumObservations)
+            throw new InvalidDataException();
+        var cursor = run.UsageImports[0];
+        if (cursor is null || !UsageImportValidation.IsHash(cursor.SourceId) ||
+            !UsageImportValidation.IsHash(cursor.Revision) || !UsageImportValidation.IsHash(cursor.SnapshotHash) ||
+            !UsageImportValidation.IsSource(cursor.SourceKind, cursor.Format) ||
+            run.Events.Any(evt => evt.ImportedUsage is null &&
+                (evt.InputTokens.HasValue || evt.OutputTokens.HasValue || evt.EstimatedCost.HasValue ||
+                    evt.Attributes?.Keys.Any(key => key is "sdk.cacheReadCount" or "sdk.cacheWriteCount") == true)))
+            throw new InvalidDataException();
+        var identifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var evt in imported)
+        {
+            var usage = evt.ImportedUsage!;
+            if (usage.SourceId != cursor.SourceId || usage.SourceKind != cursor.SourceKind || usage.Format != cursor.Format ||
+                !UsageImportValidation.IsHash(usage.ObservationId) || !identifiers.Add(usage.ObservationId) ||
+                usage.TimestampMeaning is not ("observed" or "import-time") || evt.Type != FlightEventType.ModelCall ||
+                evt.Status != FlightEventStatus.Succeeded || evt.UsageSchemaVersion != 1 || evt.EndedAt is not null ||
+                evt.EstimatedCost is not null || evt.CostBasis is not null || evt.Input is not null || evt.Output is not null ||
+                evt.Attributes is not null)
+                throw new InvalidDataException();
+            try
+            {
+                UsageImportValidation.ValidateObservation(usage.SourceKind, new()
+                {
+                    Id = usage.ObservationId, Quality = usage.Quality, Model = evt.Model, Timestamp = evt.StartedAt,
+                    InputTokens = evt.InputTokens, OutputTokens = evt.OutputTokens,
+                    EstimatedInputTokens = usage.EstimatedInputTokens, EstimatedOutputTokens = usage.EstimatedOutputTokens,
+                    CacheReadTokens = usage.CacheReadTokens, CacheWriteTokens = usage.CacheWriteTokens, NanoAiu = usage.NanoAiu
+                });
+            }
+            catch (ValidationException) { throw new InvalidDataException(); }
+        }
     }
 
     private static void Write(SqliteConnection connection, SqliteTransaction transaction, TraceRun run, bool insert)
