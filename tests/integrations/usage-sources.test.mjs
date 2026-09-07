@@ -127,7 +127,7 @@ test("canonical path aliases still reject identity changes, links and unstable r
   await t.test("different file identity", async () => {
     const changed = { ...alias.fs, lstat: async file => {
       const stat = await alias.fs.lstat(file);
-      if (file === alias.source.path) stat.ino++;
+      if (file === alias.source.path) stat.ino = stat.ino === 0 ? 1 : 0;
       return stat;
     } };
     await assert.rejects(reader.readSource(alias.source, { fs: changed }), errorCode("SOURCE_CHANGED", reader.SourceError));
