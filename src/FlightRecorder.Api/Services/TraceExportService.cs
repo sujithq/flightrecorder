@@ -30,6 +30,15 @@ public sealed class TraceExportService(TraceRedactor redactor)
             };
             if (evt.InputTokens is { } inputTokens) attributes.Add(Integer("gen_ai.usage.input_tokens", inputTokens));
             if (evt.OutputTokens is { } outputTokens) attributes.Add(Integer("gen_ai.usage.output_tokens", outputTokens));
+            if (evt.TaskId is { } taskId) attributes.Add(Identifier("flightrecorder.task.id", taskId.ToString("D")));
+            if (evt.ParentTaskId is { } parentTaskId) attributes.Add(Identifier("flightrecorder.task.parent_id", parentTaskId.ToString("D")));
+            if (evt.ChatSessionId is { } chatSessionId) attributes.Add(Identifier("flightrecorder.chat.session_id", chatSessionId));
+            if (evt.ChatTurnId is { } chatTurnId) attributes.Add(Identifier("flightrecorder.chat.turn_id", chatTurnId));
+            if (evt.SubagentSessionId is { } subagentSessionId) attributes.Add(Identifier("flightrecorder.subagent.session_id", subagentSessionId));
+            if (evt.TraceId is { } traceId) attributes.Add(Identifier("flightrecorder.trace.id", traceId));
+            if (evt.SpanId is { } spanId) attributes.Add(Identifier("flightrecorder.span.id", spanId));
+            if (evt.ReportedAiCredits is { } reportedAiCredits) attributes.Add(Decimal("gen_ai.usage.ai_credits", reportedAiCredits));
+            if (evt.EstimatedAiCredits is { } estimatedAiCredits) attributes.Add(Decimal("flightrecorder.usage.estimated_ai_credits", estimatedAiCredits));
             if (evt.ImportedUsage is { } imported)
             {
                 attributes.Add(Identifier("flightrecorder.usage.source_id", imported.SourceId));
@@ -119,6 +128,12 @@ public sealed class TraceExportService(TraceRedactor redactor)
         if (run.CopilotCredits is { } credits)
             summary.AppendLine().AppendLine(FormattableString.Invariant(
                 $"Copilot credits: {credits:0.#########}; Copilot credit-equivalent USD: ${run.CopilotUsageValueUsd:0.###########}. Source accounting value, not an invoice or model-price estimate."));
+        if (run.ReportedAiCredits is { } reported)
+            summary.AppendLine().AppendLine(FormattableString.Invariant(
+                $"Reported AI credits: {reported:0.#########}."));
+        if (run.EstimatedAiCredits is { } estimatedAiCredits)
+            summary.AppendLine().AppendLine(FormattableString.Invariant(
+                $"Estimated AI credits: {estimatedAiCredits:0.#########}. Estimates are never treated as billing truth."));
         if (run.UsageImports is { Count: > 0 })
             summary.AppendLine().AppendLine("Imported snapshots may be partial. A newer revision replaces prior counters; withdrawn observations remain as unavailable evidence.");
         var details = new StringBuilder("## Decision evidence\n\n");

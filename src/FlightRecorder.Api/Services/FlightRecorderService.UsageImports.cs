@@ -56,7 +56,8 @@ public sealed partial class FlightRecorderService
                     "Imported Copilot usage", item.Timestamp ?? previous?.StartedAt ?? receivedAt, null, FlightEventStatus.Succeeded,
                     AgentName: "local-usage-import", Model: Metadata(current.RecordingMode, item.Model),
                     Identity: "local-usage-collector", InputTokens: item.InputTokens, OutputTokens: item.OutputTokens,
-                    ParentEventId: previous?.ParentEventId, UsageSchemaVersion: 1, ImportedUsage: provenance);
+                    ParentEventId: previous?.ParentEventId, UsageSchemaVersion: 1, ImportedUsage: provenance,
+                    ReportedAiCredits: item.NanoAiu is { } nanoAiu ? nanoAiu / 1_000_000_000m : null);
                 if (previous is null) additions.Add(evt);
                 else replacements[previous.Id] = evt;
             }
@@ -66,6 +67,7 @@ public sealed partial class FlightRecorderService
                 replacements[previous.Id] = previous with
                 {
                     InputTokens = null, OutputTokens = null, EstimatedCost = null, CostBasis = null,
+                    ReportedAiCredits = null, EstimatedAiCredits = null,
                     ImportedUsage = previous.ImportedUsage! with
                     {
                         Quality = "unavailable", EstimatedInputTokens = null, EstimatedOutputTokens = null,

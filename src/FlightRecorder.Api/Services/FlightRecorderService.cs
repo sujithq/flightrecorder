@@ -11,7 +11,9 @@ public sealed partial class FlightRecorderService : IFlightRecorderService
         "http.request.method", "http.response.status_code", "gen_ai.operation.name",
         "gen_ai.request.model", "gen_ai.agent.name", "gen_ai.tool.name", "gen_ai.policy.decision",
         "gen_ai.data.classification", "sdk.usageEvent", "sdk.cacheReadCount", "sdk.cacheWriteCount",
-        "sdk.cacheDetailsReported", "sdk.durationMs", "sdk.timestampMeaning", "sdk.invalidUsageFields"
+        "sdk.cacheDetailsReported", "sdk.durationMs", "sdk.timestampMeaning", "sdk.invalidUsageFields",
+        "flightrecorder.task.lifecycle", "flightrecorder.task.source", "flightrecorder.attribution.method",
+        "flightrecorder.attribution.confidence"
     };
     private readonly TraceRedactor redactor;
     private readonly ITraceRunStore store;
@@ -39,7 +41,8 @@ public sealed partial class FlightRecorderService : IFlightRecorderService
         .OrderByDescending(run => run.StartedAt)
         .Select(run => new RunSummary(run.Id, run.Request, run.EntryPointAgent, run.RequestingIdentity, run.Status,
             run.StartedAt, run.EndedAt, run.Duration, run.Events.Count, run.InputTokens, run.OutputTokens, run.EstimatedCost, run.Usage,
-            run.EstimatedInputTokens, run.EstimatedOutputTokens, run.CopilotCredits, run.CopilotUsageValueUsd))
+            run.EstimatedInputTokens, run.EstimatedOutputTokens, run.CopilotCredits, run.CopilotUsageValueUsd,
+            run.ReportedAiCredits, run.EstimatedAiCredits))
         .ToArray();
 
     public FlightEvent? RecordEvent(Guid runId, RecordEventRequest request)
@@ -54,6 +57,9 @@ public sealed partial class FlightRecorderService : IFlightRecorderService
                 throw new UsageImportConflictException("This run uses imported usage. Manual or SDK metering cannot be mixed with that source.");
             if (request.ParentEventId is { } parentId && current.Events.All(parent => parent.Id != parentId))
                 throw new ArgumentException("Parent event must already exist in the same run.", nameof(request));
+            var attribution = TaskContext(current.Events);
+            var taskId = request.TaskId ?? attribution.CurrentTaskId;
+            var parentTaskId = request.ParentTaskId ?? (taskId is { } currentTask ? attribution.Parents.GetValueOrDefault(currentTask) : null);
             var mode = current.RecordingMode;
             evt = new FlightEvent(Guid.NewGuid(), runId, request.Type, Metadata(mode, request.Name.Trim())!, request.StartedAt,
                 request.EndedAt, request.Status, Metadata(mode, request.AgentName), Metadata(mode, request.AgentVersion), Metadata(mode, request.Model),
@@ -61,7 +67,10 @@ public sealed partial class FlightRecorderService : IFlightRecorderService
                 Metadata(mode, request.RequestedScope), Metadata(mode, request.GrantedScope),
                 Metadata(mode, request.PolicyName), Metadata(mode, request.PolicyReason), request.InputTokens, request.OutputTokens,
                 request.EstimatedCost, Protect(mode, request.Input), Protect(mode, request.Output),
-                ProtectAttributes(mode, request.Attributes), request.ParentEventId, Metadata(mode, request.CostBasis), 1);
+                ProtectAttributes(mode, request.Attributes), request.ParentEventId, Metadata(mode, request.CostBasis), 1, null,
+                taskId, parentTaskId, Metadata(mode, request.ChatSessionId), Metadata(mode, request.ChatTurnId),
+                Metadata(mode, request.SubagentSessionId), Metadata(mode, request.TraceId), Metadata(mode, request.SpanId),
+                request.ReportedAiCredits, request.EstimatedAiCredits);
             return current with { Events = [.. current.Events, evt] };
         });
         return evt;
@@ -126,5 +135,26 @@ public sealed partial class FlightRecorderService : IFlightRecorderService
                 ? TraceRedactor.Replacement : Metadata(mode, attribute.Value)!;
         }
         return new ReadOnlyDictionary<string, string>(protectedAttributes);
+    }
+
+    private static (Guid? CurrentTaskId, IReadOnlyDictionary<Guid, Guid?> Parents) TaskContext(IReadOnlyList<FlightEvent> events)
+    {
+        var parents = new Dictionary<Guid, Guid?>();
+        var stack = new List<Guid>();
+        foreach (var evt in events)
+        {
+            if (evt.TaskId is not { } taskId) continue;
+            if (!parents.ContainsKey(taskId)) parents[taskId] = evt.ParentTaskId;
+            var lifecycle = evt.Attributes?.GetValueOrDefault("flightrecorder.task.lifecycle");
+            if (string.Equals(lifecycle, "start", StringComparison.Ordinal))
+            {
+                if (!stack.Contains(taskId)) stack.Add(taskId);
+                continue;
+            }
+            if (!string.Equals(lifecycle, "complete", StringComparison.Ordinal)) continue;
+            var index = stack.LastIndexOf(taskId);
+            if (index >= 0) stack.RemoveAt(index);
+        }
+        return (stack.Count == 0 ? null : stack[^1], new ReadOnlyDictionary<Guid, Guid?>(parents));
     }
 }

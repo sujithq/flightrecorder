@@ -96,6 +96,30 @@ public sealed class TraceFeatureTests : IClassFixture<FlightRecorderApiFactory>
     }
 
     [Fact]
+    public void Otlp_export_includes_task_and_credit_attribution_fields()
+    {
+        var service = new FlightRecorderService();
+        var run = service.StartRun(new StartRunRequest { Request = "test", EntryPointAgent = "agent", RequestingIdentity = "identity" });
+        var taskId = Guid.NewGuid();
+        var parentTaskId = Guid.NewGuid();
+        service.RecordEvent(run.Id, new RecordEventRequest
+        {
+            Name = "model", Type = FlightEventType.ModelCall, TaskId = taskId, ParentTaskId = parentTaskId,
+            ChatSessionId = "chat-session", ChatTurnId = "chat-turn", SubagentSessionId = "subagent",
+            TraceId = "trace", SpanId = "span", ReportedAiCredits = 0.75m, EstimatedAiCredits = 0.9m
+        });
+        var payload = new TraceExportService(new TraceRedactor()).Otlp(service.GetRun(run.Id)!);
+        var text = payload.ToJsonString();
+        Assert.Contains("flightrecorder.task.id", text);
+        Assert.Contains("flightrecorder.task.parent_id", text);
+        Assert.Contains("flightrecorder.chat.session_id", text);
+        Assert.Contains("flightrecorder.chat.turn_id", text);
+        Assert.Contains("flightrecorder.subagent.session_id", text);
+        Assert.Contains("gen_ai.usage.ai_credits", text);
+        Assert.Contains("flightrecorder.usage.estimated_ai_credits", text);
+    }
+
+    [Fact]
     public async Task GitHub_payload_is_evidence_linked_and_marks_policy_blocks_as_action_required()
     {
         var run = await Demo();
