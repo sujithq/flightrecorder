@@ -62,6 +62,7 @@ public sealed class OtlpTracesController(IFlightRecorderService recorder) : Cont
                     StartedAt = Timestamp(span, "startTimeUnixNano") ?? DateTimeOffset.UtcNow,
                     EndedAt = Timestamp(span, "endTimeUnixNano"),
                     Status = Status(span),
+                    ParentEventId = Identifier(attributes, "flightrecorder.event.parent_id"),
                     AgentName = Text(attributes, "gen_ai.agent.name"),
                     Model = Text(attributes, "gen_ai.request.model") ?? Text(attributes, "gen_ai.response.model"),
                     InputTokens = inputTokens,
@@ -77,7 +78,7 @@ public sealed class OtlpTracesController(IFlightRecorderService recorder) : Cont
                     SpanId = spanId,
                     ReportedAiCredits = Decimal(attributes, "gen_ai.usage.ai_credits"),
                     EstimatedAiCredits = Decimal(attributes, "flightrecorder.usage.estimated_ai_credits"),
-                    Attributes = new() { ["flightrecorder.ingest.source"] = "otlp" }
+                    Attributes = EventAttributes(attributes)
                 }));
             }
         }
@@ -129,6 +130,15 @@ public sealed class OtlpTracesController(IFlightRecorderService recorder) : Cont
 
     private static Guid? Identifier(IReadOnlyDictionary<string, JsonElement> attributes, string name)
         => Guid.TryParse(Text(attributes, name), out var value) ? value : null;
+
+    private static Dictionary<string, string> EventAttributes(IReadOnlyDictionary<string, JsonElement> attributes)
+    {
+        var result = new Dictionary<string, string> { ["flightrecorder.ingest.source"] = "otlp" };
+        foreach (var key in new[] { "sdk.usageEvent", "sdk.cacheReadCount", "sdk.cacheWriteCount",
+            "sdk.cacheDetailsReported", "sdk.durationMs", "sdk.timestampMeaning", "sdk.invalidUsageFields" })
+            if (Text(attributes, key) is { } value) result[key] = value;
+        return result;
+    }
 
     private static string RequiredHex(JsonElement element, string name, int length)
     {

@@ -126,6 +126,45 @@ function payloadFor(event, options) {
   return payload;
 }
 
+function otlpPayloadFor(event, options) {
+  const payload = payloadFor(event, options);
+  const text = (key, value) => ({ key, value: { stringValue: value } });
+  const integer = (key, value) => ({ key, value: { intValue: String(value) } });
+  const decimal = (key, value) => ({ key, value: { doubleValue: value } });
+  const attributes = [
+    text("gen_ai.operation.name", "chat"),
+    text("gen_ai.agent.name", payload.agentName),
+    ...Object.entries(payload.attributes).map(([key, value]) => text(key, value))
+  ];
+  if (payload.parentEventId !== undefined) attributes.push(text("flightrecorder.event.parent_id", payload.parentEventId));
+  if (payload.model !== undefined) attributes.push(text("gen_ai.request.model", payload.model));
+  if (payload.inputTokens !== undefined) attributes.push(integer("gen_ai.usage.input_tokens", payload.inputTokens));
+  if (payload.outputTokens !== undefined) attributes.push(integer("gen_ai.usage.output_tokens", payload.outputTokens));
+  if (payload.estimatedCost !== undefined) attributes.push(decimal("flightrecorder.estimated_cost", payload.estimatedCost));
+  if (payload.costBasis !== undefined) attributes.push(text("flightrecorder.cost_basis", payload.costBasis));
+  for (const [option, key] of [
+    ["taskId", "flightrecorder.task.id"], ["parentTaskId", "flightrecorder.task.parent_id"],
+    ["chatSessionId", "flightrecorder.chat.session_id"], ["chatTurnId", "flightrecorder.chat.turn_id"],
+    ["subagentSessionId", "flightrecorder.subagent.session_id"]
+  ]) if (options[option] !== undefined) attributes.push(text(key, options[option]));
+  const observed = observedTime(event.timestamp);
+  return {
+    resourceSpans: [{
+      resource: { attributes: [text("service.name", options.agentName), text("flightrecorder.run.id", options.runId)] },
+      scopeSpans: [{
+        scope: { name: "flightrecorder-copilot-sdk", version: "1.0.0" },
+        spans: [{
+          traceId: options.runId.replaceAll("-", ""),
+          spanId: event.id.replaceAll("-", "").slice(0, 16),
+          name: payload.name,
+          ...(observed === undefined ? {} : { startTimeUnixNano: String(BigInt(observed) * 1_000_000n) }),
+          status: { code: "STATUS_CODE_OK" }, attributes
+        }]
+      }]
+    }]
+  };
+}
+
 async function readAcknowledgement(response) {
   if (response.status !== 201) {
     await response.body?.cancel();
@@ -155,6 +194,40 @@ async function readAcknowledgement(response) {
   }
 }
 
+async function readOtlpAcknowledgement(response) {
+  if (response.status !== 200) {
+    await response.body?.cancel();
+    throw new Error(`Recorder returned HTTP ${response.status}; expected 200.`);
+  }
+  if (!response.body) return;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let size = 0;
+  let text = "";
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 65536) {
+        await reader.cancel();
+        throw new Error("Recorder acknowledgement exceeded 64 KiB.");
+      }
+      text += decoder.decode(value, { stream: true });
+    }
+    text += decoder.decode();
+    if (!text.trim()) return;
+    let result;
+    try { result = JSON.parse(text); }
+    catch { throw new Error("Recorder returned a non-JSON acknowledgement; delivery is unknown."); }
+    if (!isObject(result) || result.partialSuccess?.rejectedSpans > 0 || result.partialSuccess?.errorMessage) {
+      throw new Error("Recorder returned an invalid or partial OTLP acknowledgement; delivery is unknown.");
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 async function postEvent(url, payload, options) {
   const controller = new AbortController();
   let timer;
@@ -171,6 +244,7 @@ async function postEvent(url, payload, options) {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify(payload), redirect: "error", signal: controller.signal
       });
+      if (options.transport === "otlp") return readOtlpAcknowledgement(response);
       const result = await readAcknowledgement(response);
       if (!isObject(result) || typeof result.id !== "string" || !UUID.test(result.id) ||
           typeof result.runId !== "string" || result.runId.toLowerCase() !== options.runId.toLowerCase() ||
@@ -191,11 +265,21 @@ async function postEvent(url, payload, options) {
 export function attachCopilotUsage(session, {
   runId, parentEventId, prices, serverUrl = "http://localhost:5080",
   agentName = "copilot-sdk-app", fetchImpl = globalThis.fetch, onError,
-  requestTimeoutMs = 15000, maxPending = 256, maxEvents = 10000
+  requestTimeoutMs = 15000, maxPending = 256, maxEvents = 10000,
+  transport = "events", taskId, parentTaskId, chatSessionId, chatTurnId, subagentSessionId
 } = {}) {
   requireUuid(runId, "runId");
   if (parentEventId !== undefined) requireUuid(parentEventId, "parentEventId");
-  const url = new URL(`/api/runs/${runId}/events`, localOrigin(serverUrl));
+  if (!new Set(["events", "otlp"]).has(transport)) throw new TypeError("transport must be events or otlp.");
+  if (taskId !== undefined) requireUuid(taskId, "taskId");
+  if (parentTaskId !== undefined) {
+    requireUuid(parentTaskId, "parentTaskId");
+    if (taskId === undefined) throw new TypeError("parentTaskId requires taskId.");
+  }
+  for (const [name, value] of Object.entries({ chatSessionId, chatTurnId, subagentSessionId })) {
+    if (value !== undefined && !isLabel(value, 512)) throw new TypeError(`${name} must be a non-sensitive printable label up to 512 characters.`);
+  }
+  const url = new URL(transport === "otlp" ? "/v1/traces" : `/api/runs/${runId}/events`, localOrigin(serverUrl));
   if (!session || typeof session.on !== "function") throw new TypeError("A caller-owned SDK session with on(type, handler) is required.");
   if (typeof fetchImpl !== "function" || (onError !== undefined && typeof onError !== "function")) {
     throw new TypeError("fetchImpl and onError must be functions when supplied.");
@@ -206,7 +290,8 @@ export function attachCopilotUsage(session, {
   boundedInteger(requestTimeoutMs, "requestTimeoutMs", 60000);
   boundedInteger(maxPending, "maxPending", 10000);
   boundedInteger(maxEvents, "maxEvents", 100000);
-  const options = { runId, parentEventId, prices, agentName, fetchImpl, requestTimeoutMs };
+  const options = { runId, parentEventId, prices, agentName, fetchImpl, requestTimeoutMs,
+    transport, taskId, parentTaskId, chatSessionId, chatTurnId, subagentSessionId };
   const seenEvents = new Set();
   const seenCalls = new Set();
   const failures = [];
@@ -243,7 +328,7 @@ export function attachCopilotUsage(session, {
         ? JSON.stringify([event.data.model, callId]) : undefined;
       if (seenEvents.has(id) || (callKey !== undefined && seenCalls.has(callKey))) return;
       if (pending >= maxPending || seenEvents.size >= maxEvents) throw new Error("SDK usage capture capacity exceeded; detach and flush before completing the run.");
-      const payload = payloadFor(event, options);
+      const payload = transport === "otlp" ? otlpPayloadFor(event, options) : payloadFor(event, options);
       seenEvents.add(id);
       if (callKey !== undefined) seenCalls.add(callKey);
       pending++;

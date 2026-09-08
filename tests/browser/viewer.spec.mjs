@@ -183,7 +183,7 @@ test("SDK usage adapter reaches the API and viewer with explicit pricing evidenc
     }
   };
   const capture = attachCopilotUsage(session, {
-    runId: run.id, serverUrl: baseURL,
+    runId: run.id, serverUrl: baseURL, transport: "otlp",
     prices: { "synthetic-model": {
       currency: "USD", source: "Synthetic acceptance prices, not provider pricing",
       asOf: "2026-09-01", effectiveFrom: "2026-09-01", inputTokenAccounting: "includes-cache",

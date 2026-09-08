@@ -133,6 +133,7 @@ measurements are retained, but their missing pricing basis cannot be reconstruct
 
 Applications that own a Copilot SDK session can use the opt-in
 [SDK usage adapter](integrations/copilot-sdk/README.md) to forward actual usage events.
+The adapter supports direct event delivery and opt-in OTLP/HTTP JSON transport.
 It does not intercept VS Code Chat, scrape private logs, or guess tokens from text.
 Instrumented hosts can instead send OTLP/HTTP JSON to `POST /v1/traces`; each measured
 span must carry `flightrecorder.run.id`. This receiver provides a standard transport,
