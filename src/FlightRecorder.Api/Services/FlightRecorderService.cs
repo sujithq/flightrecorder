@@ -13,7 +13,7 @@ public sealed partial class FlightRecorderService : IFlightRecorderService
         "gen_ai.data.classification", "sdk.usageEvent", "sdk.cacheReadCount", "sdk.cacheWriteCount",
         "sdk.cacheDetailsReported", "sdk.durationMs", "sdk.timestampMeaning", "sdk.invalidUsageFields",
         "flightrecorder.task.lifecycle", "flightrecorder.task.source", "flightrecorder.attribution.method",
-        "flightrecorder.attribution.confidence"
+        "flightrecorder.attribution.confidence", "flightrecorder.ingest.source"
     };
     private readonly TraceRedactor redactor;
     private readonly ITraceRunStore store;
@@ -51,6 +51,13 @@ public sealed partial class FlightRecorderService : IFlightRecorderService
         store.Update(runId, current =>
         {
             Validator.ValidateObject(request, new ValidationContext(request), true);
+            if (request.Attributes?.GetValueOrDefault("flightrecorder.ingest.source") == "otlp" &&
+                request.TraceId is not null && request.SpanId is not null &&
+                current.Events.FirstOrDefault(item => item.TraceId == request.TraceId && item.SpanId == request.SpanId) is { } existing)
+            {
+                evt = existing;
+                return current;
+            }
             if (current.UsageImports is { Count: > 0 } &&
                 (request.InputTokens.HasValue || request.OutputTokens.HasValue || request.EstimatedCost.HasValue ||
                     HasCacheCounters(request.Attributes)))

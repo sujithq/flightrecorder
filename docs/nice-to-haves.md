@@ -86,6 +86,38 @@ the service is running; investigate storage errors before restarting it.
 
 ## OpenTelemetry
 
+### Ingest model usage
+
+An instrumented model host can send OTLP/HTTP JSON to `POST /v1/traces`. Flight
+Recorder imports spans containing `gen_ai.usage.input_tokens` or
+`gen_ai.usage.output_tokens` as model calls. Every measured span must include a
+valid `flightrecorder.run.id` attribute, either on the span or its resource.
+Optional attribution uses these attributes:
+
+- `flightrecorder.task.id` and `flightrecorder.task.parent_id`
+- `flightrecorder.chat.session_id` and `flightrecorder.chat.turn_id`
+- `flightrecorder.subagent.session_id`
+- `gen_ai.agent.name`, `gen_ai.operation.name`, and `gen_ai.request.model`
+- `gen_ai.usage.ai_credits` and `flightrecorder.usage.estimated_ai_credits`
+
+An emitter may submit `flightrecorder.estimated_cost` only with a model, both
+measured token counts, and `flightrecorder.cost_basis`. The basis must identify the
+pricing source, rates, currency and effective date. Copilot credits are not provider
+API prices and must not be submitted as estimated cost.
+
+OTLP exporters may retry a successful request whose response was lost. Repeated
+spans with the same OTLP trace and span IDs are idempotent and do not increase usage.
+A payload referencing an unknown run returns 404; malformed attribution or usage
+returns 400; mixing OTLP metering into a run bound to a local usage import returns
+409. The receiver accepts OTLP/HTTP JSON up to 4 MiB. It does not accept protobuf,
+OTLP/gRPC, authentication headers, or spans without measured token attributes.
+
+This endpoint receives telemetry; it does not cause ordinary VS Code Copilot Chat
+to emit it. Exact per-turn usage still requires a cooperating host, Copilot SDK
+integration, or future consent-gated VS Code/Copilot telemetry API.
+
+### Export recorded traces
+
 The export menu downloads OTLP/HTTP JSON from
 `GET /api/runs/{runId}/exports/otlp`. It includes one root span plus all recorded
 events, valid trace/span IDs, timestamps, parent links, status and usage attributes.
@@ -111,7 +143,7 @@ Select **Send to collector**, or POST to the same export URL. The endpoint is
 server-configured, not supplied by callers. HTTPS is required except for loopback
 HTTP; redirects are disabled. Missing configuration returns 503, and collector
 failures or rejected spans return 502. Forwarding is explicit, not automatic.
-This implementation does not support OTLP/gRPC or collector authentication headers.
+Export does not support OTLP/gRPC or collector authentication headers.
 
 ## VS Code panel
 
