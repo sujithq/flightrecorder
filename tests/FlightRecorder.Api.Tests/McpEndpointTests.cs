@@ -37,5 +37,10 @@ public sealed class McpEndpointTests : IClassFixture<FlightRecorderApiFactory>
         Assert.Contains("get_flight_trace", payload);
         Assert.Contains("analyze_flight_run", payload);
         Assert.Contains("list_flight_runs", payload);
+        Assert.Contains("start_flight_task", payload);
+        Assert.Contains("start_flight_subtask", payload);
+        Assert.Contains("complete_current_flight_task", payload);
+        Assert.Contains("assign_current_chat_turn_to_flight_task", payload);
+        Assert.Contains("show_flight_task_usage", payload);
     }
 }

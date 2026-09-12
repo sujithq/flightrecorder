@@ -164,6 +164,8 @@ public sealed class SqliteTraceRunStore : ITraceRunStore
             if (evt is null || evt.Id == Guid.Empty || evt.RunId != run.Id || seen.Contains(evt.Id) ||
                 evt.Name is null || !Enum.IsDefined(evt.Type) || !Enum.IsDefined(evt.Status) ||
                 evt.InputTokens < 0 || evt.OutputTokens < 0 || evt.EstimatedCost < 0 ||
+                evt.ReportedAiCredits < 0 || evt.EstimatedAiCredits < 0 ||
+                evt.ParentTaskId is not null && evt.TaskId is null ||
                 evt.UsageSchemaVersion is not (null or 1) ||
                 evt.StartedAt < DateTimeOffset.UnixEpoch || evt.EndedAt < evt.StartedAt ||
                 evt.ParentEventId is { } parentId && !seen.Contains(parentId))

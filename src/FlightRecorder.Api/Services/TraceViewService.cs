@@ -53,7 +53,8 @@ public static class TraceViewService
         run.InputTokens, run.OutputTokens,
         run.EstimatedCost, run.Events.Count(evt => evt.Type == FlightEventType.PolicyDecision &&
             evt.Status is FlightEventStatus.Blocked or FlightEventStatus.RequiresApproval), run.Usage,
-        run.EstimatedInputTokens, run.EstimatedOutputTokens, run.CopilotCredits, run.CopilotUsageValueUsd);
+        run.EstimatedInputTokens, run.EstimatedOutputTokens, run.CopilotCredits, run.CopilotUsageValueUsd,
+        run.ReportedAiCredits, run.EstimatedAiCredits);
 
     private static Dictionary<string, FlightEvent> Index(TraceRun run)
     {
@@ -93,7 +94,16 @@ public static class TraceViewService
             ("OutputTokens", baseline.OutputTokens, candidate.OutputTokens),
             ("EstimatedCost", baseline.EstimatedCost, candidate.EstimatedCost),
             ("CostBasis", baseline.CostBasis, candidate.CostBasis),
-            ("ImportedUsage", baseline.ImportedUsage, candidate.ImportedUsage)
+            ("ImportedUsage", baseline.ImportedUsage, candidate.ImportedUsage),
+            ("TaskId", baseline.TaskId, candidate.TaskId),
+            ("ParentTaskId", baseline.ParentTaskId, candidate.ParentTaskId),
+            ("ChatSessionId", baseline.ChatSessionId, candidate.ChatSessionId),
+            ("ChatTurnId", baseline.ChatTurnId, candidate.ChatTurnId),
+            ("SubagentSessionId", baseline.SubagentSessionId, candidate.SubagentSessionId),
+            ("TraceId", baseline.TraceId, candidate.TraceId),
+            ("SpanId", baseline.SpanId, candidate.SpanId),
+            ("ReportedAiCredits", baseline.ReportedAiCredits, candidate.ReportedAiCredits),
+            ("EstimatedAiCredits", baseline.EstimatedAiCredits, candidate.EstimatedAiCredits)
         ];
         return fields.Where(field => !Equals(field.Before, field.After)).Select(field => field.Name).ToArray();
     }

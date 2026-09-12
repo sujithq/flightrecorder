@@ -207,10 +207,44 @@ Making MCP tools available is not automatic recording or interception of agent t
 Use your workspace's recording policy or explicitly ask Copilot to record a workflow.
 Only loopback URLs are accepted; this prototype has no authentication layer.
 
+## Use the shared instrumented runtime
+
+The extension contributes two Copilot Chat participants backed by one shared
+Copilot SDK client in the current VS Code window:
+
+- `@flightrecorder` provides concise, read-only general answers.
+- `@flightrecorder-review` reviews supplied text for defects, risks, and missing tests.
+
+Install GitHub Copilot CLI, sign in, start the local recorder, and invoke either
+participant in Copilot Chat. Each request creates a separate Redacted recorder run
+and task, creates an isolated SDK session, attaches OTLP usage capture before the
+model call, returns the answer, flushes usage, and completes the run. Open Recorder
+to inspect measured tokens reported by the SDK. Both participants share one SDK
+client process for efficiency; they never share SDK sessions or conversation state.
+
+The participants use the model family selected in the Chat UI when the SDK supports
+that model. They deliberately expose no tools, load no workspace custom instructions,
+deny permission requests, and do not modify files. Conversation history included by
+VS Code for the current participant is sent to its isolated SDK request but is not
+recorded as event content. Cancelling a request disconnects its session.
+
+Measured token capture needs no price configuration. Estimated USD remains off unless
+`flightRecorder.copilotUsdPrices` contains a complete entry keyed by the exact model
+reported by the SDK. Use independently verified rates and cache-accounting semantics;
+invalid, incomplete, expired, or mismatched entries produce no estimate rather than a
+zero. The full field contract is documented in the SDK integration guide.
+
+The VSIX bundles the SDK client, but it does not bundle a platform runtime or sign
+users in. `copilot` must be available on `PATH`; the shared client uses the CLI's
+logged-in identity. The runtime starts lazily on the first participant request and
+stops when the extension host closes. Built-in Copilot and unrelated participants
+still bypass this runtime and therefore do not gain per-turn usage recording.
+
 ### Why usage may say "Not reported"
 
-Normal Copilot Chat does not push per-call token usage to the recorder through its
-recording instructions. **Collect Local Copilot Usage** can now opt into reading a
+Built-in Copilot Chat does not push per-call token usage to the recorder through its
+recording instructions. The extension-owned participants above use an instrumented
+SDK session instead. **Collect Local Copilot Usage** can opt into reading a
 selected persisted session instead; supported fields vary by runtime. The viewer
 shows **Not reported** for omitted token/cost fields, preserves explicitly reported
 zero, and labels known subtotals **partial** when recorded model-call usage is incomplete.

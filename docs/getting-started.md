@@ -344,7 +344,7 @@ This makes it possible to distinguish a code failure from an authorization or go
 
 ## GitHub Copilot integration
 
-The Docker API exposes a Streamable HTTP Model Context Protocol (MCP) endpoint at `http://localhost:5080/mcp`. Copilot can use the endpoint as six tools:
+The Docker API exposes a Streamable HTTP Model Context Protocol (MCP) endpoint at `http://localhost:5080/mcp`. Copilot can use the endpoint tools to start runs, attribute work to explicit tasks/subtasks, and inspect task-level usage:
 
 - `flightrecorder/start_flight_run`
 - `flightrecorder/record_flight_event`
@@ -352,6 +352,11 @@ The Docker API exposes a Streamable HTTP Model Context Protocol (MCP) endpoint a
 - `flightrecorder/get_flight_trace`
 - `flightrecorder/analyze_flight_run`
 - `flightrecorder/list_flight_runs`
+- `flightrecorder/start_flight_task`
+- `flightrecorder/start_flight_subtask`
+- `flightrecorder/complete_current_flight_task`
+- `flightrecorder/assign_current_chat_turn_to_flight_task`
+- `flightrecorder/show_flight_task_usage`
 
 The [shared local recording policy](../.github/copilot-instructions.md#local-flight-recorder-policy) instructs ordinary Copilot, custom agents, and Squad agents whose host loads it to record substantive local tasks in VS Code or Copilot CLI. It does not automatically apply recording to cloud/CI sessions or casual questions, and users can opt out. Instructions do not configure the server, enable tools, or override permissions.
 

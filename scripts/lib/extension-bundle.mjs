@@ -5,6 +5,7 @@ import { lstat, mkdir, mkdtemp, open, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { build } from "esbuild";
 
 const exec = promisify(execFile);
 const apiRoot = "src/FlightRecorder.Api";
@@ -35,7 +36,8 @@ const excludedSegments = new Set([
 ]);
 const extensionFiles = new Set([
   "package.json", "extension.cjs", "webview.cjs", "setup.cjs", "docker-process.cjs",
-  "local-recorder.cjs", "mcp.cjs", "usage-collector.cjs", "usage-sources.cjs", "README.md", "LICENSE", "media/setup.md"
+  "local-recorder.cjs", "mcp.cjs", "usage-collector.cjs", "usage-sources.cjs", "shared-runtime.cjs",
+  "shared-runtime-sdk.cjs", "README.md", "LICENSE", "media/setup.md"
 ]);
 const requiredExtensionFiles = ["extension.cjs", "webview.cjs", "README.md", "LICENSE"];
 
@@ -164,9 +166,17 @@ export async function withExtensionStage({
     const contextPaths = await collectContextPaths(repositoryRoot);
     await writeStagedFile(extensionDirectory, "package.json", extensionSource);
     for (const name of [...new Set(extensionManifest.files)].sort()) {
-      if (name === "package.json" || name === "recorder/**") continue;
+      if (name === "package.json" || name === "recorder/**" || name === "shared-runtime-sdk.cjs") continue;
       const source = await readRegularFile(repositoryRoot, name === "LICENSE" ? "LICENSE" : `${extensionRoot}/${name}`);
       await writeStagedFile(extensionDirectory, name, source);
+    }
+    if (extensionManifest.files.includes("shared-runtime-sdk.cjs")) {
+      await build({
+        entryPoints: [path.join(repositoryRoot, extensionRoot, "shared-runtime-sdk-entry.mjs")],
+        outfile: path.join(extensionDirectory, "shared-runtime-sdk.cjs"),
+        bundle: true, platform: "node", format: "cjs", target: "node22",
+        external: ["koffi", "@github/copilot-sdk-*"], logLevel: "silent"
+      });
     }
 
     const contextDirectory = path.join(extensionDirectory, "recorder", "context");

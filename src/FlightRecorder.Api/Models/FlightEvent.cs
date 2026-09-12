@@ -52,7 +52,16 @@ public sealed record FlightEvent(
     Guid? ParentEventId = null,
     string? CostBasis = null,
     int? UsageSchemaVersion = null,
-    ImportedUsage? ImportedUsage = null)
+    ImportedUsage? ImportedUsage = null,
+    Guid? TaskId = null,
+    Guid? ParentTaskId = null,
+    string? ChatSessionId = null,
+    string? ChatTurnId = null,
+    string? SubagentSessionId = null,
+    string? TraceId = null,
+    string? SpanId = null,
+    decimal? ReportedAiCredits = null,
+    decimal? EstimatedAiCredits = null)
 {
     public TimeSpan Duration => (EndedAt ?? StartedAt) - StartedAt;
 }
@@ -82,6 +91,8 @@ public sealed record TraceRun(
     public long? EstimatedOutputTokens => UsageTotals.Tokens(Events.Select(e => e.ImportedUsage?.EstimatedOutputTokens));
     public decimal? CopilotCredits => UsageTotals.Cost(Events.Select(e => (decimal?)e.ImportedUsage?.NanoAiu)) / 1_000_000_000m;
     public decimal? CopilotUsageValueUsd => UsageTotals.Cost(Events.Select(e => (decimal?)e.ImportedUsage?.NanoAiu)) / 100_000_000_000m;
+    public decimal? ReportedAiCredits => UsageTotals.Cost(Events.Select(e => e.ReportedAiCredits));
+    public decimal? EstimatedAiCredits => UsageTotals.Cost(Events.Select(e => e.EstimatedAiCredits));
     public UsageCoverage Usage => UsageCoverage.From(Events);
 }
 
@@ -102,7 +113,9 @@ public sealed record RunSummary(
     long? EstimatedInputTokens = null,
     long? EstimatedOutputTokens = null,
     decimal? CopilotCredits = null,
-    decimal? CopilotUsageValueUsd = null);
+    decimal? CopilotUsageValueUsd = null,
+    decimal? ReportedAiCredits = null,
+    decimal? EstimatedAiCredits = null);
 
 public sealed record UsageCoverage(int EventCount, int InputTokenEvents, int OutputTokenEvents, int CostEvents)
 {

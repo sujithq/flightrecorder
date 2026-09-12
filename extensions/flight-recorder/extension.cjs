@@ -3,6 +3,17 @@ const { randomBytes } = require("node:crypto");
 const { validateServerUrl, withRun, panelHtml } = require("./webview.cjs");
 const { registerLocalSetup } = require("./setup.cjs");
 const { registerUsageCollection } = require("./usage-collector.cjs");
+const { registerSharedRuntime } = require("./shared-runtime.cjs");
+
+async function loadSharedRuntimeSdk() {
+  try { return require("./shared-runtime-sdk.cjs"); }
+  catch (error) {
+    if (error?.code !== "MODULE_NOT_FOUND") throw error;
+    const sdk = require("@github/copilot-sdk");
+    const usage = await import("../../integrations/copilot-sdk/usage.mjs");
+    return { ...sdk, attachCopilotUsage: usage.attachCopilotUsage };
+  }
+}
 
 function activate(context) {
   let panel;
@@ -58,6 +69,13 @@ function activate(context) {
   );
   registerLocalSetup(vscode, context, { open, getOrigin: () => serverUrl().origin });
   registerUsageCollection(vscode, context, { open, getOrigin: () => serverUrl().origin });
+  registerSharedRuntime(vscode, context, {
+    getOrigin: () => serverUrl().origin,
+    getPrices: () => vscode.workspace.getConfiguration("flightRecorder").get("copilotUsdPrices"),
+    storagePath: context.globalStorageUri.fsPath,
+    loadSdk: loadSharedRuntimeSdk,
+    attachUsage: async (session, options) => (await loadSharedRuntimeSdk()).attachCopilotUsage(session, options)
+  });
 }
 
 module.exports = { activate };

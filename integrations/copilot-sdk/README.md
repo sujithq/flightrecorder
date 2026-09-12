@@ -79,6 +79,7 @@ try {
     runId,
     parentEventId: process.env.FLIGHTRECORDER_PARENT_EVENT_ID,
     serverUrl: process.env.FLIGHTRECORDER_URL ?? "http://localhost:5080",
+    transport: "otlp",
     prices,
     onError: error => console.error(error.message)
   });
@@ -165,9 +166,17 @@ zero prices, not absence of data.
 - `attachCopilotUsage(session, options)` returns `{ flush, detach }`.
   `flush()` drains accepted events without unsubscribing; call it after work is
   idle. `detach()` unsubscribes immediately, drains, and is idempotent.
-- Events are serialized POSTs to `/api/runs/{runId}/events` with `type: 2`
-  (`ModelCall`), `status: 1` (`Succeeded` usage observation), optional parent
-  UUID, and the non-sensitive role `copilot-sdk-app` by default.
+- `transport: "otlp"` sends OTLP/HTTP JSON to `/v1/traces`. The adapter uses the
+  run UUID as its trace ID and derives a stable span ID from the ephemeral SDK
+  event UUID, so retries are deduplicated by the recorder. The run ID is also
+  sent as `flightrecorder.run.id`; model and measured counts use `gen_ai.*`.
+- The default `transport: "events"` preserves serialized POSTs to
+  `/api/runs/{runId}/events` with `type: 2` (`ModelCall`) and `status: 1`
+  (`Succeeded`). Both transports use the non-sensitive role `copilot-sdk-app`.
+- OTLP attribution options are `taskId`, `parentTaskId`, `chatSessionId`,
+  `chatTurnId`, and `subagentSessionId`. Task IDs must be UUIDs; a parent task
+  requires a task ID. Session labels must be printable, non-sensitive text up
+  to 512 characters. `parentEventId` is preserved by both transports.
 - Known input/output counts must be integer numbers in `0..2147483647`.
   Missing/null/invalid counts are omitted, not coerced. Invalid field **names**
   are noted in attributes without their values. A missing/invalid model does
@@ -177,8 +186,9 @@ zero prices, not absence of data.
   `duration` is kept separately as `sdk.durationMs`; cache counts and the
   optional boolean `cacheDetailsReported` are also attributes.
 - No prompts, responses, credentials, repository paths, SDK session/agent
-  identities, provider request IDs, or raw event payloads are sent. Event UUIDs
-  and `(model, apiCallId)` keys are retained **locally only** for deduplication.
+  identities, provider request IDs, or raw event payloads are sent. Raw event
+  UUIDs and `(model, apiCallId)` keys are retained locally for deduplication;
+  OTLP mode emits a derived 64-bit span ID, not the original UUID.
   Do not attach two adapters to the same work/run: deduplication is per adapter,
   not persistent across restarts. Identical counts on distinct calls are kept.
 - Only loopback HTTP(S) origins (`localhost`, `127.0.0.1`, `[::1]`) are allowed.
@@ -187,9 +197,10 @@ zero prices, not absence of data.
   queries, and fragments are rejected. Redirects are errors. Use only a trusted
   local recorder; its normal redaction/metadata recording policy still applies.
 - `requestTimeoutMs` defaults to 15,000 (allowed 1–60,000), covering fetch **and**
-  response-body reads. A successful acknowledgement must be HTTP 201 with an
-  event UUID, matching run, parent, type, and name; its body is capped at 64 KiB.
-  No response body is included in error messages.
+  response-body reads. Event transport requires HTTP 201 with an event UUID,
+  matching run, parent, type, and name. OTLP transport requires HTTP 200 and
+  rejects malformed or partial-success responses. Acknowledgement bodies are
+  capped at 64 KiB and never included in error messages.
 - `maxPending` defaults to 256 (maximum 10,000); `maxEvents` defaults to 10,000
   (maximum 100,000). Reaching either bound fails visibly instead of silently
   evicting dedup keys or allowing unbounded intake.

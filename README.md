@@ -37,7 +37,7 @@ Open **http://localhost:5080**. The **Demo run** menu creates synthetic blocked 
 | --- | --- |
 | Agent graph | Recorded parent relationships, selectable connections, delegated objectives and identity changes |
 | Policy visualization | Decision list, scope comparison, filters and evidence inspector |
-| OpenTelemetry export | OTLP/HTTP JSON download and forwarding to a configured collector |
+| OpenTelemetry | OTLP/HTTP JSON ingestion plus trace download and forwarding |
 | VS Code extension | Bundled local Docker setup, lifecycle controls, optional MCP connection, shared viewer and run picker |
 | GitHub check summary | Job-summary CLI, reusable action and explicit opt-in Checks API publishing |
 | Trace comparison | Matched events, changed fields and duration/token/cost/policy deltas |
@@ -55,6 +55,7 @@ See [feature setup and limitations](docs/nice-to-haves.md) and the [Badger2040 g
 - `GET /api/runs/{runId}` returns the complete trace, including token, latency and cost totals.
 - `GET /api/runs/{runId}/analysis` returns a deterministic, evidence-linked root-cause summary.
 - `GET /api/runs` lists run summaries.
+- `POST /v1/traces` ingests OTLP/HTTP JSON spans carrying measured GenAI usage and explicit run attribution.
 - `GET /api/runs/{runId}/graph` returns recorded nodes and edges.
 - `GET /api/runs/{baselineId}/compare/{candidateId}` compares two stored traces.
 - `GET /api/runs/{runId}/exports/otlp` downloads OTLP JSON; `POST` forwards it to the configured collector.
@@ -119,6 +120,13 @@ extension. Missing/unreachable version endpoints display **Version unavailable**
 ## Token usage and cost
 
 Usage is not automatically supplied merely by installing the VSIX or enabling MCP.
+The VSIX provides `@flightrecorder` and `@flightrecorder-review` as read-only,
+instrumented chat participants. They share one local Copilot SDK client while using
+an isolated SDK session and Redacted recorder run for every request. The GitHub
+Copilot CLI must be installed, signed in, and available on `PATH`. Only calls routed
+through these participants are captured; built-in Copilot and unrelated agents do
+not use this runtime.
+
 Use **Flight Recorder: Collect Local Copilot Usage** to opt into a selected native
 Copilot session and bind its usage to a dedicated run. The [local collection guide](docs/local-usage.md)
 covers supported persisted formats, measured versus estimated fields, privacy, and
@@ -132,7 +140,11 @@ measurements are retained, but their missing pricing basis cannot be reconstruct
 
 Applications that own a Copilot SDK session can use the opt-in
 [SDK usage adapter](integrations/copilot-sdk/README.md) to forward actual usage events.
+The adapter supports direct event delivery and opt-in OTLP/HTTP JSON transport.
 It does not intercept VS Code Chat, scrape private logs, or guess tokens from text.
+Instrumented hosts can instead send OTLP/HTTP JSON to `POST /v1/traces`; each measured
+span must carry `flightrecorder.run.id`. This receiver provides a standard transport,
+but it cannot make ordinary VS Code Copilot Chat emit telemetry that its host does not expose.
 Optional USD estimates require explicitly configured model prices and usage; Copilot
 credits are never converted to dollars. Direct cost submissions must include a model,
 reported input/output tokens, and `costBasis`. Leave unknown values out rather than

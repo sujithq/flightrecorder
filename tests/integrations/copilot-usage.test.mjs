@@ -42,6 +42,7 @@ function harness(overrides = {}) {
   const fetchImpl = async (url, options) => {
     const body = JSON.parse(options.body);
     requests.push({ url, options, body });
+    if (new URL(url).pathname === "/v1/traces") return Response.json({}, { status: 200 });
     return Response.json({ ...body, id: randomUUID(), runId }, { status: 201 });
   };
   const adapter = attachCopilotUsage(session, { runId, parentEventId, fetchImpl, ...overrides });
@@ -132,6 +133,36 @@ test("real assistant.usage contract sends only safe observed fields under the ex
   assert.equal(body.attributes["sdk.cacheDetailsReported"], "true");
   assert.doesNotMatch(JSON.stringify(body), /sensitive|PRIVATE|EXPORT|987654|apiCallId|providerCallId|totalNanoAiu|copilotUsage/i);
   await adapter.detach();
+});
+
+test("OTLP transport emits retry-stable GenAI usage with explicit task and chat attribution", async () => {
+  const taskId = "12345678-1234-1234-1234-123456789abc";
+  const sdkEventId = "abcdef12-3456-4789-abcd-ef1234567890";
+  const { session, requests, adapter } = harness({
+    transport: "otlp", prices, taskId, chatSessionId: "session-1", chatTurnId: "turn-1"
+  });
+  session.emit(event({ ...usage, prompt: "PRIVATE PROMPT", content: "PRIVATE RESPONSE" }, { id: sdkEventId }));
+  await adapter.detach();
+  assert.equal(requests.length, 1);
+  const { url, body } = requests[0];
+  assert.equal(String(url), "http://localhost:5080/v1/traces");
+  const resource = body.resourceSpans[0];
+  const span = resource.scopeSpans[0].spans[0];
+  const values = Object.fromEntries([...resource.resource.attributes, ...span.attributes].map(attribute => [
+    attribute.key, attribute.value.stringValue ?? Number(attribute.value.intValue ?? attribute.value.doubleValue)
+  ]));
+  assert.equal(span.traceId, runId.replaceAll("-", ""));
+  assert.equal(span.spanId, sdkEventId.replaceAll("-", "").slice(0, 16));
+  assert.equal(values["flightrecorder.run.id"], runId);
+  assert.equal(values["flightrecorder.event.parent_id"], parentEventId);
+  assert.equal(values["flightrecorder.task.id"], taskId);
+  assert.equal(values["flightrecorder.chat.session_id"], "session-1");
+  assert.equal(values["flightrecorder.chat.turn_id"], "turn-1");
+  assert.equal(values["gen_ai.request.model"], model);
+  assert.equal(values["gen_ai.usage.input_tokens"], 1000);
+  assert.equal(values["gen_ai.usage.output_tokens"], 100);
+  assert.ok(values["flightrecorder.estimated_cost"] > 0);
+  assert.doesNotMatch(JSON.stringify(body), /PRIVATE|PROMPT|RESPONSE/);
 });
 
 test("missing usage stays omitted, explicit zero survives, malformed numbers are never coerced", async () => {
@@ -280,6 +311,19 @@ test("HTTP errors are sticky and observable through onError, flush, and detach w
   assert.equal(attempts, 1);
 });
 
+test("OTLP transport rejects HTTP errors, malformed acknowledgements, and partial success", async () => {
+  const cases = [
+    async () => new Response(null, { status: 503 }),
+    async () => new Response("not-json", { status: 200 }),
+    async () => Response.json({ partialSuccess: { rejectedSpans: "1", errorMessage: "synthetic rejection" } })
+  ];
+  for (const fetchImpl of cases) {
+    const { session, adapter } = harness({ transport: "otlp", fetchImpl });
+    session.emit(event());
+    await assert.rejects(adapter.detach(), AggregateError);
+  }
+});
+
 test("transport rejection, invalid acknowledgements, and observer rejection never become unhandled", async () => {
   const cases = [
     async () => { throw new Error("connection failed"); },
@@ -358,7 +402,9 @@ test("configuration accepts only explicit local origins and bounded valid option
   for (const config of [
     { runId: "../run" }, { parentEventId: "not-uuid" }, { requestTimeoutMs: 0 },
     { requestTimeoutMs: Infinity }, { maxEvents: 0 }, { maxPending: true },
-    { agentName: "private user\nname" }, { fetchImpl: 5 }, { onError: "ignore" }
+    { agentName: "private user\nname" }, { fetchImpl: 5 }, { onError: "ignore" },
+    { transport: "grpc" }, { taskId: "not-uuid" }, { parentTaskId: runId },
+    { chatTurnId: "private\nturn" }
   ]) assert.throws(() => harness(config));
   assert.throws(() => attachCopilotUsage({}, { runId }));
   assert.throws(() => attachCopilotUsage({ on() {} }, { runId }), /unsubscribe/);

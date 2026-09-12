@@ -47,6 +47,15 @@ public sealed class RecordEventRequest : IValidatableObject
     public string? Input { get; init; }
     public string? Output { get; init; }
     public Dictionary<string, string>? Attributes { get; init; }
+    public Guid? TaskId { get; init; }
+    public Guid? ParentTaskId { get; init; }
+    public string? ChatSessionId { get; init; }
+    public string? ChatTurnId { get; init; }
+    public string? SubagentSessionId { get; init; }
+    public string? TraceId { get; init; }
+    public string? SpanId { get; init; }
+    [Range(0, double.MaxValue)] public decimal? ReportedAiCredits { get; init; }
+    [Range(0, double.MaxValue)] public decimal? EstimatedAiCredits { get; init; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
@@ -63,5 +72,7 @@ public sealed class RecordEventRequest : IValidatableObject
                 [nameof(EstimatedCost), nameof(Model), nameof(InputTokens), nameof(OutputTokens), nameof(CostBasis)]);
         if (!EstimatedCost.HasValue && CostBasis is not null)
             yield return new ValidationResult("A cost basis must accompany an estimated cost.", [nameof(CostBasis)]);
+        if (ParentTaskId.HasValue && !TaskId.HasValue)
+            yield return new ValidationResult("A parentTaskId requires taskId.", [nameof(ParentTaskId), nameof(TaskId)]);
     }
 }

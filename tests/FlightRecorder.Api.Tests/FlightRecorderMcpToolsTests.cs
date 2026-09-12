@@ -65,5 +65,44 @@ public sealed class FlightRecorderMcpToolsTests
         Assert.False(tools.CompleteRun(runId));
         Assert.Null(tools.GetRun(runId));
         Assert.Null(tools.AnalyzeRun(runId));
+        Assert.Null(tools.StartTask(runId, "missing"));
+        Assert.Null(tools.StartSubtask(runId, "missing"));
+        Assert.Null(tools.CompleteCurrentTask(runId));
+        Assert.Null(tools.ShowTaskUsage(runId));
+    }
+
+    [Fact]
+    public void Task_controls_apply_deterministic_attribution_and_report_breakdown()
+    {
+        var tools = new FlightRecorderMcpTools(new FlightRecorderService());
+        var run = tools.StartRun("Implement usage attribution", "github-copilot", "developer", RecordingMode.Redacted);
+        var task = tools.StartTask(run.Id, "Implement usage attribution", source: "manual")!;
+        var subtask = tools.StartSubtask(run.Id, "Add tests", source: "todo")!;
+        var attributed = tools.RecordEvent(run.Id, FlightEventType.ModelCall, "Generate tests",
+            inputTokens: 1200, outputTokens: 220, reportedAiCredits: 1.25m, estimatedAiCredits: 1.4m)!;
+        var turn = tools.AssignCurrentChatTurnToTask(run.Id, "chat-session-1", "chat-turn-3",
+            subagentSessionId: "subagent-5", traceId: "trace-1", spanId: "span-1")!;
+        Assert.Equal(subtask.TaskId, attributed.TaskId);
+        Assert.Equal(subtask.TaskId, turn.TaskId);
+        Assert.Equal("chat-session-1", turn.ChatSessionId);
+        Assert.Equal("chat-turn-3", turn.ChatTurnId);
+        Assert.Equal("subagent-5", turn.SubagentSessionId);
+        Assert.Equal("trace-1", turn.TraceId);
+        Assert.Equal("span-1", turn.SpanId);
+        Assert.NotNull(tools.CompleteCurrentTask(run.Id));
+        Assert.NotNull(tools.CompleteCurrentTask(run.Id));
+
+        var breakdown = tools.ShowTaskUsage(run.Id)!;
+        Assert.Equal(2, breakdown.Tasks.Count);
+        Assert.Equal(1.25m, breakdown.ReportedAiCredits);
+        Assert.Equal(1.4m, breakdown.EstimatedAiCredits);
+        var addTests = breakdown.Tasks.Single(item => item.TaskId == subtask.TaskId);
+        Assert.Equal(task.TaskId, addTests.ParentTaskId);
+        Assert.Equal(1, addTests.ModelCalls);
+        Assert.Equal(1200, addTests.InputTokens);
+        Assert.Equal(220, addTests.OutputTokens);
+        Assert.Equal(1.25m, addTests.ReportedAiCredits);
+        Assert.Equal(1.4m, addTests.EstimatedAiCredits);
+        Assert.Equal("todo", addTests.Source);
     }
 }

@@ -52,4 +52,33 @@ public sealed class EventHierarchyTests
         Assert.Throws<ValidationException>(() => service.RecordEvent(run.Id,
             new RecordEventRequest { Name = "bad type", Type = (FlightEventType)99 }));
     }
+
+    [Fact]
+    public void Events_without_task_id_inherit_the_current_active_task()
+    {
+        var service = new FlightRecorderService();
+        var run = Start(service);
+        var taskId = Guid.NewGuid();
+        var subtaskId = Guid.NewGuid();
+        service.RecordEvent(run.Id, new RecordEventRequest
+        {
+            Name = "Main task", Type = FlightEventType.AgentSpan, Status = FlightEventStatus.Started,
+            TaskId = taskId, Attributes = new() { ["flightrecorder.task.lifecycle"] = "start" }
+        });
+        service.RecordEvent(run.Id, new RecordEventRequest
+        {
+            Name = "Subtask", Type = FlightEventType.AgentSpan, Status = FlightEventStatus.Started,
+            TaskId = subtaskId, ParentTaskId = taskId, Attributes = new() { ["flightrecorder.task.lifecycle"] = "start" }
+        });
+        var attributed = service.RecordEvent(run.Id, new RecordEventRequest { Name = "model call", Type = FlightEventType.ModelCall })!;
+        Assert.Equal(subtaskId, attributed.TaskId);
+        Assert.Equal(taskId, attributed.ParentTaskId);
+        service.RecordEvent(run.Id, new RecordEventRequest
+        {
+            Name = "Subtask complete", Type = FlightEventType.AgentSpan, Status = FlightEventStatus.Succeeded,
+            TaskId = subtaskId, ParentTaskId = taskId, Attributes = new() { ["flightrecorder.task.lifecycle"] = "complete" }
+        });
+        var parentTaskEvent = service.RecordEvent(run.Id, new RecordEventRequest { Name = "after subtask", Type = FlightEventType.ToolCall })!;
+        Assert.Equal(taskId, parentTaskEvent.TaskId);
+    }
 }
