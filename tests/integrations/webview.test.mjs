@@ -13,6 +13,7 @@ async function runExtensionCommand(command, configuredUrl) {
   const handlers = new Map();
   const requests = [];
   const forwarded = [];
+  const participants = new Map();
   const panel = { webview: { html: "" }, onDidDispose: () => ({ dispose() {} }), reveal() {}, dispose() {} };
   const vscode = {
     workspace: {
@@ -34,6 +35,11 @@ async function runExtensionCommand(command, configuredUrl) {
     },
     commands: { registerCommand(name, handler) { handlers.set(name, handler); return { dispose() {} }; } }
   };
+  vscode.chat = { createChatParticipant(name, handler) {
+    const participant = { id: name, requestHandler: handler, dispose() {} };
+    participants.set(name, participant);
+    return participant;
+  } };
   const extension = { exports: {} };
   runInNewContext(await readFile(extensionUrl, "utf8"), {
     module: extension,
@@ -41,14 +47,22 @@ async function runExtensionCommand(command, configuredUrl) {
     URL, AbortSignal,
     fetch: async url => { requests.push(url.href); return Response.json([]); }
   });
-  extension.exports.activate({ subscriptions: [] });
+  extension.exports.activate({ subscriptions: [], globalStorageUri: { fsPath: "C:\\synthetic-storage" } });
   await handlers.get(command)();
-  return { requests, forwarded, html: panel.webview.html };
+  return { requests, forwarded, html: panel.webview.html, participants };
 }
 
 test("extension manifest uses Docker port 5080 by default", async () => {
   const manifest = JSON.parse(await readFile(new URL("../../extensions/flight-recorder/package.json", import.meta.url), "utf8"));
   assert.equal(manifest.contributes.configuration.properties["flightRecorder.serverUrl"].default, "http://localhost:5080");
+  assert.deepEqual(manifest.contributes.chatParticipants.map(item => item.name), ["flightrecorder", "flightrecorder-review"]);
+});
+
+test("extension activation registers both participants on one shared runtime", async () => {
+  const result = await runExtensionCommand("flightRecorder.open");
+  assert.deepEqual([...result.participants.keys()], ["flightRecorder.chat", "flightRecorder.review"]);
+  assert.equal(typeof result.participants.get("flightRecorder.chat").requestHandler, "function");
+  assert.equal(typeof result.participants.get("flightRecorder.review").requestHandler, "function");
 });
 
 test("onboarding walkthrough packages its guide and links only to contributed commands", async () => {

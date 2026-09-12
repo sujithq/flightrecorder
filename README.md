@@ -120,6 +120,13 @@ extension. Missing/unreachable version endpoints display **Version unavailable**
 ## Token usage and cost
 
 Usage is not automatically supplied merely by installing the VSIX or enabling MCP.
+The VSIX provides `@flightrecorder` and `@flightrecorder-review` as read-only,
+instrumented chat participants. They share one local Copilot SDK client while using
+an isolated SDK session and Redacted recorder run for every request. The GitHub
+Copilot CLI must be installed, signed in, and available on `PATH`. Only calls routed
+through these participants are captured; built-in Copilot and unrelated agents do
+not use this runtime.
+
 Use **Flight Recorder: Collect Local Copilot Usage** to opt into a selected native
 Copilot session and bind its usage to a dedicated run. The [local collection guide](docs/local-usage.md)
 covers supported persisted formats, measured versus estimated fields, privacy, and

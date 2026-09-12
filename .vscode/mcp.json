@@ -2,7 +2,7 @@
   "servers": {
     "flightrecorder": {
       "type": "http",
-      "url": "http://localhost:5082/mcp"
+      "url": "http://localhost:5080/mcp"
     }
   }
 }

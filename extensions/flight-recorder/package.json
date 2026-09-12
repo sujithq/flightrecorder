@@ -10,7 +10,7 @@
   "repository": { "type": "git", "url": "https://github.com/sujithq/flightrecorder.git", "directory": "extensions/flight-recorder" },
   "main": "./extension.cjs",
   "extensionKind": ["workspace"],
-  "activationEvents": ["onMcpServerDefinitionProvider:flightRecorder.local"],
+  "activationEvents": ["onMcpServerDefinitionProvider:flightRecorder.local", "onChatParticipant:flightRecorder.chat", "onChatParticipant:flightRecorder.review"],
   "capabilities": {
     "untrustedWorkspaces": { "supported": false, "description": "The recorder connects to local services and can explicitly build and manage a Docker installation." },
     "virtualWorkspaces": { "supported": false }
@@ -37,6 +37,21 @@
     ],
     "mcpServerDefinitionProviders": [
       { "id": "flightRecorder.local", "label": "Flight Recorder (local)" }
+    ],
+    "chatParticipants": [
+      {
+        "id": "flightRecorder.chat",
+        "name": "flightrecorder",
+        "fullName": "Flight Recorder",
+        "description": "Instrumented Copilot SDK chat with automatic Flight Recorder usage capture",
+        "isSticky": true
+      },
+      {
+        "id": "flightRecorder.review",
+        "name": "flightrecorder-review",
+        "fullName": "Flight Recorder Review",
+        "description": "Instrumented read-only review participant sharing the Flight Recorder runtime"
+      }
     ],
     "walkthroughs": [
       {
@@ -91,9 +106,32 @@
           "scope": "machine",
           "restricted": true,
           "description": "Local recorder origin. Only localhost, 127.0.0.1 and ::1 are accepted. Remote workspaces use VS Code port forwarding."
+        },
+        "flightRecorder.copilotUsdPrices": {
+          "type": "object",
+          "default": {},
+          "scope": "machine",
+          "description": "Optional exact-model USD price evidence for instrumented participants. No bundled rates or wildcard fallback. Each entry requires currency USD, source, asOf, effectiveFrom, inputTokenAccounting, inputPerMillion, outputPerMillion, and observed cache rates when applicable.",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["currency", "source", "asOf", "effectiveFrom", "inputTokenAccounting", "inputPerMillion", "outputPerMillion"],
+            "properties": {
+              "currency": { "const": "USD" },
+              "source": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "asOf": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+              "effectiveFrom": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+              "effectiveUntil": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+              "inputTokenAccounting": { "enum": ["includes-cache", "excludes-cache"] },
+              "inputPerMillion": { "type": "number", "minimum": 0 },
+              "outputPerMillion": { "type": "number", "minimum": 0 },
+              "cacheReadPerMillion": { "type": "number", "minimum": 0 },
+              "cacheWritePerMillion": { "type": "number", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
         }
       }
     }
   },
-  "files": ["extension.cjs", "webview.cjs", "setup.cjs", "mcp.cjs", "docker-process.cjs", "local-recorder.cjs", "usage-collector.cjs", "usage-sources.cjs", "media/setup.md", "recorder/**", "README.md", "LICENSE"]
+  "files": ["extension.cjs", "webview.cjs", "setup.cjs", "mcp.cjs", "docker-process.cjs", "local-recorder.cjs", "usage-collector.cjs", "usage-sources.cjs", "shared-runtime.cjs", "shared-runtime-sdk.cjs", "media/setup.md", "recorder/**", "README.md", "LICENSE"]
 }
