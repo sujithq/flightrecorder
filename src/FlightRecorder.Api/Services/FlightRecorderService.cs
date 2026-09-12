@@ -46,41 +46,51 @@ public sealed partial class FlightRecorderService : IFlightRecorderService
         .ToArray();
 
     public FlightEvent? RecordEvent(Guid runId, RecordEventRequest request)
+        => RecordEvents(runId, [request])?.Single();
+
+    public IReadOnlyList<FlightEvent>? RecordEvents(Guid runId, IReadOnlyList<RecordEventRequest> requests)
     {
-        FlightEvent? evt = null;
-        store.Update(runId, current =>
+        ArgumentNullException.ThrowIfNull(requests);
+        var recorded = new List<FlightEvent>(requests.Count);
+        var updated = store.Update(runId, current =>
         {
-            Validator.ValidateObject(request, new ValidationContext(request), true);
-            if (request.Attributes?.GetValueOrDefault("flightrecorder.ingest.source") == "otlp" &&
-                request.TraceId is not null && request.SpanId is not null &&
-                current.Events.FirstOrDefault(item => item.TraceId == request.TraceId && item.SpanId == request.SpanId) is { } existing)
+            var candidate = current;
+            foreach (var request in requests)
             {
-                evt = existing;
-                return current;
+                Validator.ValidateObject(request, new ValidationContext(request), true);
+                if (request.Attributes?.GetValueOrDefault("flightrecorder.ingest.source") == "otlp" &&
+                    request.TraceId is not null && request.SpanId is not null &&
+                    candidate.Events.FirstOrDefault(item => item.TraceId == request.TraceId && item.SpanId == request.SpanId) is { } existing)
+                {
+                    recorded.Add(existing);
+                    continue;
+                }
+                if (candidate.UsageImports is { Count: > 0 } &&
+                    (request.InputTokens.HasValue || request.OutputTokens.HasValue || request.EstimatedCost.HasValue ||
+                        HasCacheCounters(request.Attributes)))
+                    throw new UsageImportConflictException("This run uses imported usage. Manual or SDK metering cannot be mixed with that source.");
+                if (request.ParentEventId is { } parentId && candidate.Events.All(parent => parent.Id != parentId))
+                    throw new ArgumentException("Parent event must already exist in the same run.", nameof(requests));
+                var attribution = TaskContext(candidate.Events);
+                var taskId = request.TaskId ?? attribution.CurrentTaskId;
+                var parentTaskId = request.ParentTaskId ?? (taskId is { } currentTask ? attribution.Parents.GetValueOrDefault(currentTask) : null);
+                var mode = candidate.RecordingMode;
+                var evt = new FlightEvent(Guid.NewGuid(), runId, request.Type, Metadata(mode, request.Name.Trim())!, request.StartedAt,
+                    request.EndedAt, request.Status, Metadata(mode, request.AgentName), Metadata(mode, request.AgentVersion), Metadata(mode, request.Model),
+                    Metadata(mode, request.ToolServer), Metadata(mode, request.Identity), Protect(mode, request.Objective),
+                    Metadata(mode, request.RequestedScope), Metadata(mode, request.GrantedScope),
+                    Metadata(mode, request.PolicyName), Metadata(mode, request.PolicyReason), request.InputTokens, request.OutputTokens,
+                    request.EstimatedCost, Protect(mode, request.Input), Protect(mode, request.Output),
+                    ProtectAttributes(mode, request.Attributes), request.ParentEventId, Metadata(mode, request.CostBasis), 1, null,
+                    taskId, parentTaskId, Metadata(mode, request.ChatSessionId), Metadata(mode, request.ChatTurnId),
+                    Metadata(mode, request.SubagentSessionId), Metadata(mode, request.TraceId), Metadata(mode, request.SpanId),
+                    request.ReportedAiCredits, request.EstimatedAiCredits);
+                recorded.Add(evt);
+                candidate = candidate with { Events = [.. candidate.Events, evt] };
             }
-            if (current.UsageImports is { Count: > 0 } &&
-                (request.InputTokens.HasValue || request.OutputTokens.HasValue || request.EstimatedCost.HasValue ||
-                    HasCacheCounters(request.Attributes)))
-                throw new UsageImportConflictException("This run uses imported usage. Manual or SDK metering cannot be mixed with that source.");
-            if (request.ParentEventId is { } parentId && current.Events.All(parent => parent.Id != parentId))
-                throw new ArgumentException("Parent event must already exist in the same run.", nameof(request));
-            var attribution = TaskContext(current.Events);
-            var taskId = request.TaskId ?? attribution.CurrentTaskId;
-            var parentTaskId = request.ParentTaskId ?? (taskId is { } currentTask ? attribution.Parents.GetValueOrDefault(currentTask) : null);
-            var mode = current.RecordingMode;
-            evt = new FlightEvent(Guid.NewGuid(), runId, request.Type, Metadata(mode, request.Name.Trim())!, request.StartedAt,
-                request.EndedAt, request.Status, Metadata(mode, request.AgentName), Metadata(mode, request.AgentVersion), Metadata(mode, request.Model),
-                Metadata(mode, request.ToolServer), Metadata(mode, request.Identity), Protect(mode, request.Objective),
-                Metadata(mode, request.RequestedScope), Metadata(mode, request.GrantedScope),
-                Metadata(mode, request.PolicyName), Metadata(mode, request.PolicyReason), request.InputTokens, request.OutputTokens,
-                request.EstimatedCost, Protect(mode, request.Input), Protect(mode, request.Output),
-                ProtectAttributes(mode, request.Attributes), request.ParentEventId, Metadata(mode, request.CostBasis), 1, null,
-                taskId, parentTaskId, Metadata(mode, request.ChatSessionId), Metadata(mode, request.ChatTurnId),
-                Metadata(mode, request.SubagentSessionId), Metadata(mode, request.TraceId), Metadata(mode, request.SpanId),
-                request.ReportedAiCredits, request.EstimatedAiCredits);
-            return current with { Events = [.. current.Events, evt] };
+            return candidate;
         });
-        return evt;
+        return updated is null ? null : recorded;
     }
 
     public bool CompleteRun(Guid runId, DateTimeOffset? endedAt = null)

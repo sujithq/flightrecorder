@@ -9,7 +9,7 @@ class ChatRequestTurn { constructor(prompt) { this.prompt = prompt; } }
 class ChatResponseTurn { constructor(text) { this.response = [{ value: { value: text } }]; } }
 const vscode = { ChatRequestTurn, ChatResponseTurn };
 
-function harness() {
+function harness({ beforeCreateSession, sendAndWait } = {}) {
   const calls = [];
   const sessions = [];
   const captures = [];
@@ -31,10 +31,12 @@ function harness() {
     async start() { starts++; },
     async stop() { stops++; return []; },
     async createSession(config) {
+      await beforeCreateSession?.();
       const session = {
         config, disconnected: 0, sent: [],
         async sendAndWait(options) {
           this.sent.push(options);
+          if (sendAndWait) return sendAndWait(options);
           return { data: { content: `Response ${sessions.length + 1}` } };
         },
         async disconnect() { this.disconnected++; }
@@ -106,4 +108,53 @@ test("Copilot discovery returns a usable command path from platform lookup outpu
     : "/usr/local/bin/copilot\n";
   const selected = await discoverCopilotCli(async () => ({ stdout: lines }));
   assert.equal(selected, process.platform === "win32" ? "C:\\tools\\copilot.exe" : "/usr/local/bin/copilot");
+});
+
+test("cancellation during session creation prevents model send and completes the task", async () => {
+  let releaseCreation;
+  let creationStarted;
+  const started = new Promise(resolve => { creationStarted = resolve; });
+  const blocked = new Promise(resolve => { releaseCreation = resolve; });
+  const { runtime, calls, sessions } = harness({ beforeCreateSession: async () => {
+    creationStarted();
+    await blocked;
+  } });
+  let cancel;
+  const cancellation = { onCancellationRequested(handler) { cancel = handler; return { dispose() {} }; } };
+  const handling = runtime.handle("flightRecorder.chat", { prompt: "Question", model: { family: "gpt-test" } },
+    { history: [] }, { markdown() {} }, cancellation);
+  await started;
+  cancel();
+  releaseCreation();
+
+  await assert.rejects(handling, /cancelled/);
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].sent.length, 0);
+  assert.equal(sessions[0].disconnected, 1);
+  const eventCalls = calls.filter(call => call.path.endsWith("/events"));
+  assert.equal(eventCalls.length, 2);
+  assert.equal(eventCalls[1].body.status, 3);
+  assert.equal(eventCalls[1].body.attributes["flightrecorder.task.lifecycle"], "complete");
+  assert.equal(calls.filter(call => call.path.endsWith("/complete")).length, 1);
+  await runtime.dispose();
+});
+
+test("failed model sends complete the participant task lifecycle", async () => {
+  const { runtime, calls, sessions, captures } = harness({
+    sendAndWait: async () => { throw new Error("synthetic model failure"); }
+  });
+  const cancellation = { onCancellationRequested: () => ({ dispose() {} }) };
+
+  await assert.rejects(runtime.handle("flightRecorder.chat", { prompt: "Question", model: { family: "gpt-test" } },
+    { history: [] }, { markdown() {} }, cancellation), /synthetic model failure/);
+
+  const eventCalls = calls.filter(call => call.path.endsWith("/events"));
+  assert.equal(eventCalls.length, 2);
+  assert.equal(eventCalls[1].body.status, 2);
+  assert.equal(eventCalls[1].body.taskId, eventCalls[0].body.taskId);
+  assert.equal(eventCalls[1].body.attributes["flightrecorder.task.lifecycle"], "complete");
+  assert.equal(calls.filter(call => call.path.endsWith("/complete")).length, 1);
+  assert.equal(sessions[0].disconnected, 1);
+  assert.equal(captures[0].detached, 1);
+  await runtime.dispose();
 });

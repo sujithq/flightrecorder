@@ -107,10 +107,13 @@ API prices and must not be submitted as estimated cost.
 
 OTLP exporters may retry a successful request whose response was lost. Repeated
 spans with the same OTLP trace and span IDs are idempotent and do not increase usage.
-A payload referencing an unknown run returns 404; malformed attribution or usage
-returns 400; mixing OTLP metering into a run bound to a local usage import returns
-409. The receiver accepts OTLP/HTTP JSON up to 4 MiB. It does not accept protobuf,
-OTLP/gRPC, authentication headers, or spans without measured token attributes.
+Each request may target one Flight Recorder run. All measured spans in that request
+are validated and stored atomically, so a rejected span leaves the run unchanged.
+A payload referencing an unknown run returns 404; malformed attribution, cross-run
+batches, or usage return 400; mixing OTLP metering into a run bound to a local usage
+import returns 409. The receiver accepts OTLP/HTTP JSON up to 4 MiB. It does not
+accept protobuf, OTLP/gRPC, authentication headers, or spans without measured token
+attributes.
 
 This endpoint receives telemetry; it does not cause ordinary VS Code Copilot Chat
 to emit it. Exact per-turn usage still requires a cooperating host, Copilot SDK

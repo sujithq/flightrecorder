@@ -28,6 +28,7 @@
     "@bradygaster/squad-cli": "0.13.0",
     "@github/copilot": "1.0.83",
     "@github/copilot-sdk": "1.0.13",
+    "@opentelemetry/api": "1.9.1",
     "@playwright/test": "1.63.0",
     "@types/vscode": "1.134.0",
     "@vscode/vsce": "3.9.2",

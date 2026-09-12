@@ -20,10 +20,13 @@ public sealed class OtlpTracesController(IFlightRecorderService recorder) : Cont
         try
         {
             var events = Parse(payload);
+            var runIds = events.Select(item => item.RunId).Distinct().ToArray();
+            if (runIds.Length > 1)
+                throw new ArgumentException("An OTLP request may target only one Flight Recorder run.");
             if (events.Any(item => recorder.GetRun(item.RunId) is not { EndedAt: null })) return NotFound();
             foreach (var item in events)
                 Validator.ValidateObject(item.Request, new ValidationContext(item.Request), true);
-            foreach (var item in events) recorder.RecordEvent(item.RunId, item.Request);
+            if (runIds.Length == 1) recorder.RecordEvents(runIds[0], events.Select(item => item.Request).ToArray());
             return Ok(new { });
         }
         catch (Exception error) when (error is ArgumentException or FormatException or InvalidOperationException or
@@ -158,7 +161,10 @@ public sealed class OtlpTracesController(IFlightRecorderService recorder) : Cont
     private static FlightEventStatus Status(JsonElement span)
     {
         var status = Property(span, "status");
-        var code = Text(status, "code");
-        return code == "STATUS_CODE_ERROR" || code == "2" ? FlightEventStatus.Failed : FlightEventStatus.Succeeded;
+        if (status.ValueKind != JsonValueKind.Object || !status.TryGetProperty("code", out var code))
+            return FlightEventStatus.Succeeded;
+        return code.ValueKind == JsonValueKind.Number && code.TryGetInt32(out var numeric) && numeric == 2 ||
+            code.ValueKind == JsonValueKind.String && code.GetString() is "STATUS_CODE_ERROR" or "2"
+            ? FlightEventStatus.Failed : FlightEventStatus.Succeeded;
     }
 }

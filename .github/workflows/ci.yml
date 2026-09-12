@@ -39,6 +39,7 @@ jobs:
           tests/integrations/mcp-provider.test.mjs
           tests/integrations/usage-sources.test.mjs
           tests/integrations/usage-collector.test.mjs
+          tests/integrations/shared-runtime.test.mjs
           tests/integrations/webview.test.mjs
           tests/integrations/client-defaults.test.mjs
 

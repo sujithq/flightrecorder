@@ -21,6 +21,15 @@ function asError(error, message) {
   return error instanceof Error ? error : new Error(message, { cause: error });
 }
 
+function throwIfAborted(signal) {
+  if (signal.aborted) throw new Error("Request cancelled.");
+}
+
+function cancellationPromise(signal) {
+  if (signal.aborted) return Promise.reject(new Error("Request cancelled."));
+  return new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("Request cancelled.")), { once: true }));
+}
+
 function chatHistory(vscode, context, prompt) {
   const messages = [];
   for (const turn of context?.history ?? []) {
@@ -117,7 +126,9 @@ class SharedCopilotRuntime {
           attributes: { "flightrecorder.task.lifecycle": "start", "flightrecorder.task.source": "prompt",
             "flightrecorder.attribution.method": "explicit-task", "flightrecorder.attribution.confidence": "1.0" }
         } });
+      throwIfAborted(controller.signal);
       const client = await this.client();
+      throwIfAborted(controller.signal);
       session = await client.createSession({
         model: request.model?.family,
         availableTools: [], excludedTools: ["builtin:*", "mcp:*", "custom:*"],
@@ -125,14 +136,16 @@ class SharedCopilotRuntime {
         skipCustomInstructions: true, streaming: false,
         onPermissionRequest: () => ({ kind: "denied-no-approval-rule-and-could-not-request-from-user" })
       });
+      throwIfAborted(controller.signal);
       capture = await this.attachUsage(session, {
         runId: run.id, parentEventId: task.id, taskId, serverUrl: origin,
         transport: "otlp", prices: this.getPrices(),
         agentName: participantId.replaceAll(/[^a-z0-9._-]/giu, "-")
       });
+      throwIfAborted(controller.signal);
       const response = await Promise.race([
         session.sendAndWait({ prompt: chatHistory(this.vscode, context, request.prompt) }),
-        new Promise((_, reject) => controller.signal.addEventListener("abort", () => reject(new Error("Request cancelled.")), { once: true }))
+        cancellationPromise(controller.signal)
       ]);
       if (!response?.data?.content) throw new Error("Copilot returned no assistant response.");
       stream.markdown(response.data.content);
@@ -149,9 +162,13 @@ class SharedCopilotRuntime {
       const error = asError(cause, "Shared Copilot runtime failed.");
       if (run?.id) {
         try {
+          const taskAttributes = task?.taskId ? {
+            "flightrecorder.task.lifecycle": "complete", "flightrecorder.attribution.method": "explicit-task",
+            "flightrecorder.attribution.confidence": "1.0"
+          } : undefined;
           await recorderRequest(origin, `/api/runs/${run.id}/events`, { method: "POST", fetchImpl: this.fetchImpl, body: {
             type: 0, status: controller.signal.aborted ? 3 : 2, name: `${profile.name} turn failed`,
-            taskId: task?.taskId, parentEventId: task?.id, output: error.message
+            taskId: task?.taskId, parentEventId: task?.id, output: error.message, attributes: taskAttributes
           } });
           await recorderRequest(origin, `/api/runs/${run.id}/complete`, { method: "POST", fetchImpl: this.fetchImpl });
         } catch { }
