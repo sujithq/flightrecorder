@@ -6,7 +6,7 @@ COPY scripts/build-web.mjs scripts/build-web.mjs
 COPY src/FlightRecorder.Web/ src/FlightRecorder.Web/
 RUN npm run build:web
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS base
 RUN mkdir /data && chown "$APP_UID:$APP_UID" /data && chmod 700 /data
 USER $APP_UID
 WORKDIR /app
